@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acronym Annunciator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* One visual world: a dark glass-cockpit annunciator panel. Mastery = lamp state (dark, amber caution, green on). B612 is the Airbus cockpit-display face. */
+  --bg:#070b10; --bezel:#0d141c; --panel:#121b25; --raise:#1a2532; --ink:#e4ebf1; --muted:#8495a7; --line:#223041;
+  --lamp-off:#0a1017; --lamp-dim:#33445a;
+  --on:#41d67f; --caution:#ffb23f; --warn:#ff5a4f; --mag:#ff4fb0; --cyan:#43c6e6;
+  --mono:"B612 Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --body:"B612",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+#app{display:flex;flex-direction:column;height:100%;max-width:620px;margin:0 auto;position:relative;overflow:hidden}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bezel)}
+.brand{margin:0;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.14em;text-transform:uppercase}
+.brand span{color:var(--on);text-shadow:0 0 10px rgba(65,214,127,.45)}
+.hdr{font-family:var(--mono);font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hdr b{color:var(--caution);font-weight:700}
+main{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+
+/* menu */
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bezel);border:1px solid var(--line);border-radius:10px;padding:4px;gap:4px}
+.seg button{border:none;background:none;border-radius:7px;padding:10px 2px;font-size:13px;font-weight:700;color:var(--muted)}
+.pc .item.q2{font-size:20px;line-height:1.3}
+.tchips{display:flex;flex-wrap:wrap;gap:6px}
+.tchip{border:1px solid var(--line);background:var(--bezel);border-radius:999px;padding:7px 11px;font-size:13px;font-weight:700;color:var(--muted)}
+.tchip[aria-pressed="true"]{color:var(--ink);border-color:var(--mag);background:rgba(255,79,176,.14)}
+.seg button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:inset 0 -2px 0 var(--mag)}
+.lede{margin:0;color:var(--muted);font-size:14px}
+.grp{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:6px 0 -6px;display:flex;justify-content:space-between}
+.panelgrid{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:row dense;gap:8px;background:var(--bezel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.cap{text-align:left;background:linear-gradient(180deg,#0f1720,#0a1016);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-height:80px}
+.cap.wide{grid-column:span 2}
+.cap .nm{font-family:var(--mono);font-weight:700;font-size:17px;letter-spacing:.07em;color:#6d7f93}
+.cap .tp{font-size:12px;color:var(--muted);line-height:1.3}
+.cap .st{font-size:13px;letter-spacing:3px;color:var(--lamp-dim);margin-top:auto}
+.cap .st i{font-style:normal;color:var(--caution)}
+.cap.caution{border-color:rgba(255,178,63,.4)}
+.cap.caution .nm{color:var(--caution);text-shadow:0 0 12px rgba(255,178,63,.5)}
+.cap.on{border-color:rgba(65,214,127,.45)}
+.cap.on .nm{color:var(--on);text-shadow:0 0 12px rgba(65,214,127,.55)}
+.cta{width:100%;min-height:54px;border-radius:10px;border:1px solid var(--mag);background:rgba(255,79,176,.14);color:var(--ink);font-weight:700;font-size:16px}
+.cta small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--lamp-dim)}
+.legend .c::before{background:var(--caution)} .legend .o::before{background:var(--on)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.box ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
+.bignum{font-family:var(--mono);font-size:44px;font-weight:700;line-height:1;color:var(--caution);font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.quiet{font-size:12px;color:var(--muted)}
+.reset{background:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted)}
+.reset.armed{border-color:var(--warn);color:var(--warn);font-weight:700}
+
+/* round */
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.back{background:none;border:none;color:var(--cyan);font-weight:700;padding:6px 2px}
+.ttl{font-family:var(--mono);font-weight:700;letter-spacing:.08em;font-size:15px;text-align:center}
+.meter{font-family:var(--mono);font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.meter b{color:var(--ink)}
+.meter .x{color:var(--warn)}
+.topic{margin:-8px 0 0;text-align:center;font-size:13px;color:var(--muted)}
+.lights{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;background:var(--bezel);border:1px solid var(--line);border-radius:12px;padding:10px 6px}
+.lights .gap{width:10px}
+.lt{min-width:32px;height:46px;padding:0 4px;display:grid;place-items:center;border-radius:6px;background:var(--lamp-off);border:1px solid #1a2532;font-family:var(--mono);font-weight:700;font-size:20px;color:var(--lamp-dim)}
+.lt.on{background:var(--on);border-color:var(--on);color:#03200e;box-shadow:0 0 14px rgba(65,214,127,.45)}
+.lt.cur{background:var(--caution);border-color:var(--caution);color:#2a1700;box-shadow:0 0 16px rgba(255,178,63,.55)}
+.lt.bad{background:var(--warn);border-color:var(--warn);color:#2a0503}
+.last{min-height:22px;text-align:center;font-size:14px;color:var(--on)}
+.last b{font-family:var(--mono)}
+.ask{margin:0;text-align:center;font-size:15px;color:var(--muted)}
+.ask b{font-family:var(--mono);font-size:30px;color:var(--caution);vertical-align:-4px;margin:0 4px}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{min-height:56px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:16px}
+.opt.right,.chip.right,.lo.right{border-color:var(--on);background:rgba(65,214,127,.16)}
+.opt.wrong,.chip.wrong,.lo.wrong{border-color:var(--warn);background:rgba(255,90,79,.16)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:15px;min-height:46px}
+.tb{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.tb span{display:block;height:100%;background:var(--mag)}
+.tb.low span{background:var(--warn)}
+.pc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 16px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.pc .k{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.pc .item{font-size:26px;font-weight:700;line-height:1.25;text-wrap:balance}
+.lgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lo{min-height:78px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.lo .nm{font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:.05em;color:var(--cyan)}
+.lo .tp{font-size:12px;color:var(--muted);line-height:1.3}
+.streak{color:var(--mag);font-weight:700}
+
+/* result */
+.res{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.stars{font-size:46px;letter-spacing:6px;text-align:center;color:var(--lamp-dim);line-height:1}
+.stars i{font-style:normal;color:var(--caution);text-shadow:0 0 14px rgba(255,178,63,.5)}
+.res h2{margin:0;text-align:center;font-size:22px;text-wrap:balance}
+.res .sub{margin:0;text-align:center;color:var(--muted);font-size:14px}
+.newbest{align-self:center;font-family:var(--mono);font-size:12px;letter-spacing:.12em;background:var(--mag);color:#2a0418;border-radius:999px;padding:3px 10px;font-weight:700}
+.say{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.say li{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:baseline;font-size:15px}
+.say li b{font-family:var(--mono);color:var(--on);text-align:right}
+.say li.missed b{color:var(--warn)}
+.say .word{font-style:normal;font-family:var(--mono);color:var(--caution)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{min-height:50px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:700}
+.btn.full{grid-column:span 2}
+
+.hdrwrap{display:flex;align-items:center;gap:10px}
+.sound{background:none;border:1px solid var(--line);border-radius:8px;width:38px;height:32px;display:grid;place-items:center;color:var(--muted);padding:0}
+.sound[aria-pressed="true"]{color:var(--on);border-color:rgba(65,214,127,.45)}
+.bonus{font-family:var(--mono);font-weight:700;color:var(--on);opacity:0;margin-right:4px}
+.bonus.neg{color:var(--warn)}
+.bonus.show{opacity:1}
+.banner{text-align:center;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;color:#2a1700;background:var(--caution);border-radius:8px;padding:7px 10px;box-shadow:0 0 16px rgba(255,178,63,.4)}
+.setnm{font-family:var(--mono);font-weight:700;font-size:17px;letter-spacing:.08em;color:var(--cyan)}
+.mini{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;margin:2px 0}
+.mini .lt{min-width:24px;height:32px;font-size:15px;padding:0 3px;border-radius:4px}
+.pc .item b{font-family:var(--mono);color:var(--caution)}
+.lopts{display:flex;flex-direction:column;gap:8px}
+.rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--muted)}
+.rules b{color:var(--ink)}
+
+.credits{margin-top:8px;padding:16px 12px 6px;border-top:1px solid var(--line);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.credits .lamps{display:flex;gap:6px}
+.credits .lamps i{width:22px;height:6px;border-radius:2px;background:var(--on);box-shadow:0 0 8px rgba(65,214,127,.6)}
+.credits .lamps i:nth-child(2){background:var(--caution);box-shadow:0 0 8px rgba(255,178,63,.6)}
+.credits .lamps i:nth-child(3){background:var(--mag);box-shadow:0 0 8px rgba(255,79,176,.6)}
+.credits .by{margin:0;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.credits .by b{color:var(--ink)}
+.credits .gl{margin:0;font-size:14px;color:var(--caution)}
+.golive{display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--caution,#ffb23f);margin:0 0 14px}
+.hi .lbbtn{background:none;border:1px solid rgba(255,178,63,.55);border-radius:999px;padding:6px 12px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--caution)}
+.hi .hs{display:flex;gap:8px;align-items:baseline}
+.seg.seg3{grid-template-columns:repeat(3,1fr)}
+.lb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.lb li{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.lb .rk{font-family:var(--mono);font-weight:700;font-size:16px;color:var(--muted);text-align:center}
+.lb .cs{font-family:var(--mono);font-weight:700;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .val{font-family:var(--mono);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+.lb li.g1{border-color:rgba(255,201,60,.6)} .lb li.g1 .rk{color:#ffc93c;text-shadow:0 0 10px rgba(255,201,60,.6)}
+.lb li.g2 .rk{color:#d6dde5} .lb li.g3 .rk{color:#d08a4a}
+.lb li.mine{background:rgba(255,79,176,.10);border-color:var(--mag)}
+.lb .del{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:12px;padding:3px 8px}
+.lb .del.armed{border-color:var(--warn);color:var(--warn);font-weight:700}
+.me .mecs{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.06em;color:var(--mag)}
+.me .stats{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:13px;color:var(--muted)}
+.me .stats b{color:var(--ink)}
+.me input,.paste{font:inherit;background:var(--bezel);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:10px 12px;width:100%}
+.me input{font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
+.paste{min-height:96px;font-size:13px;resize:vertical}
+.card{margin:0;white-space:pre-wrap;word-break:break-all;font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bezel);border:1px dashed var(--line);border-radius:8px;padding:10px;user-select:all;-webkit-user-select:all}
+.note{margin:0;font-size:13px;color:var(--muted)}
+.note.ok{color:var(--on)} .note.bad{color:var(--warn)}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:18px 8px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
+.sbar{display:flex;align-items:center;justify-content:center;gap:8px;height:30px;flex:0 0 auto;border-radius:999px;border:1px solid var(--line);background:var(--bezel);font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--lamp-dim)}
+.sbar b{font-size:16px;display:inline-block}
+.sbar.warm{color:var(--caution);border-color:rgba(255,178,63,.5)}
+.sbar.fire{color:#fff1dc;border-color:#ff7a3a;background:rgba(255,90,30,.22);box-shadow:0 0 16px rgba(255,110,40,.45)}
+.sbar.blue{color:#e6fbff;border-color:var(--cyan);background:rgba(67,198,230,.18);box-shadow:0 0 18px rgba(67,198,230,.5)}
+.hi{display:flex;justify-content:space-between;gap:8px;align-items:center;font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--muted);margin-top:-6px}
+.hi b{font-size:18px;color:var(--mag);text-shadow:0 0 10px rgba(255,79,176,.5)}
+.callout{position:absolute;left:0;right:0;top:36%;z-index:7;padding:12px 12px 10px;background:rgba(7,11,16,.84);border-top:2px solid currentColor;border-bottom:2px solid currentColor;text-align:center;font-family:var(--mono);font-weight:700;font-size:34px;line-height:1.1;letter-spacing:.06em;color:#ffd27a;text-shadow:0 0 18px rgba(255,130,40,.85),0 3px 0 #5a2400;pointer-events:none;opacity:0}
+.callout small{display:block;margin-top:6px;font-size:13px;letter-spacing:.16em;color:var(--ink);text-shadow:none}
+.callout.blue{color:#c9f6ff;text-shadow:0 0 20px rgba(67,198,230,.95),0 3px 0 #06303b}
+.callout.lost{color:var(--warn);font-size:28px;text-shadow:0 0 14px rgba(255,90,79,.6),0 3px 0 #3a0a08}
+.callout.rec{color:var(--mag);text-shadow:0 0 18px rgba(255,79,176,.8),0 3px 0 #3a0624}
+.callout.go{animation:callout 1.1s ease-out forwards}
+.callout.go.calm{animation:calm 1.1s linear forwards}
+@keyframes callout{0%{opacity:0;transform:scale(.3) rotate(-8deg)}14%{opacity:1;transform:scale(1.18) rotate(2deg)}28%{transform:scale(1) rotate(0)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-34px) scale(1.04)}}
+@keyframes calm{0%,100%{opacity:0}15%,80%{opacity:1}}
+@keyframes quake{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,-1px)}}
+@keyframes flick{to{transform:scale(1.2)}}
+
+@media (prefers-reduced-motion:no-preference){
+  .quake{animation:quake .38s}
+  .sbar.fire b,.sbar.blue b{animation:flick .45s ease-in-out infinite alternate}
+  .bonus.show{animation:rise .65s ease-out forwards}
+  .lt.cur{animation:pulse 1.1s ease-in-out infinite}
+  .sweep .lt{animation:lamp .45s ease-out both;animation-delay:calc(var(--i) * 55ms)}
+  .shake{animation:shake .3s ease}
+  .tb span{transition:width .1s linear}
+}
+@keyframes pulse{50%{box-shadow:0 0 4px rgba(255,178,63,.2)}}
+@keyframes lamp{0%{background:var(--lamp-off);color:var(--lamp-dim);border-color:#1a2532;box-shadow:none}55%{background:#c9ffe0;color:#03200e;box-shadow:0 0 22px rgba(65,214,127,.9)}}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes rise{0%{opacity:0;transform:translateY(6px)}25%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 class="brand">Acronym <span>Annunciator</span></h1>
+    <div class="hdrwrap">
+      <div class="hdr" id="hdr"></div>
+      <button class="sound" id="snd" data-act="sound" aria-label="Sound effects" aria-pressed="true"></button>
+    </div>
+  </header>
+  <main id="main"></main>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="callout" id="callout" aria-live="polite"></div>
+</div>
+<script>
+/* Each item: [letter, what it stands for]. breaks = gap before that index. nolight = left out of Lightning. */
+const SETS = [
+ {id:"grab",name:"GRABCARDD",topic:"IFR equipment · 91.205(d)",items:[["G","Generator / alternator"],["R","Radios & nav equipment"],["A","Altimeter (sensitive)"],["B","Ball (slip-skid indicator)"],["C","Clock (hr, min, sec)"],["A","Attitude indicator"],["R","Rate-of-turn indicator"],["D","Directional gyro"],["D","DME (FL240+ with VORs)"]]},
+ {id:"atom",name:"ATOMATOFLAMES",topic:"Day VFR equipment · 91.205(b)",items:[["A","Airspeed indicator"],["T","Tachometer"],["O","Oil pressure gauge"],["M","Manifold pressure gauge"],["A","Altimeter"],["T","Temperature gauge (coolant)"],["O","Oil temperature gauge"],["F","Fuel gauge"],["L","Landing gear position indicator"],["A","Anti-collision lights"],["M","Magnetic compass"],["E","ELT"],["S","Safety belts"]]},
+ {id:"flaps",name:"FLAPS",topic:"Night VFR equipment · 91.205(c)",items:[["F","Fuses (spare set)"],["L","Landing light (for hire)"],["A","Anti-collision lights"],["P","Position lights"],["S","Source of electrical power"]]},
+ {id:"aviates",name:"AV1ATES",topic:"Required inspections",items:[["A","Airworthiness directives"],["V","VOR check · 30 days"],["1","100-hour (for hire)"],["A","Annual · 12 months"],["T","Transponder · 24 months"],["E","ELT · 12 months"],["S","Static / altimeter · 24 months"]]},
+ {id:"hit",name:"6HIT",topic:"IR currency · 61.57(c)",items:[["6","6 instrument approaches"],["H","Holding procedures"],["I","Intercepting courses"],["T","Tracking courses"]]},
+ {id:"vdmona",name:"VDMONA",topic:"Compass errors",items:[["V","Variation"],["D","Deviation"],["M","Magnetic dip"],["O","Oscillation"],["N","Northerly turning error"],["A","Acceleration error"]]},
+ {id:"unos",name:"UNOS ANDS",topic:"Turning & acceleration errors",breaks:[4],nolight:true,items:[["U","Undershoot"],["N","North"],["O","Overshoot"],["S","South"],["A","Accelerate"],["N","North"],["D","Decelerate"],["S","South"]]},
+ {id:"vglad",name:"VGLAD",topic:"VOR receiver checks",items:[["V","VOT · ±4°"],["G","Ground checkpoint · ±4°"],["L","Landmark / airway · ±6°"],["A","Airborne checkpoint · ±6°"],["D","Dual VOR · within 4°"]]},
+ {id:"deps",name:"DEPS",topic:"VOR check log entry · 91.171",items:[["D","Date"],["E","Error (bearing)"],["P","Place"],["S","Signature"]]},
+ {id:"marv",name:"MARVELOUS VFR C500",topic:"Mandatory reports to ATC",breaks:[9,12],items:[["M","Missed approach"],["A","Airspeed change ±10 kt / 5%"],["R","Reaching a holding fix"],["V","VFR-on-top altitude change"],["E","ETA change"],["L","Leaving a holding fix"],["O","Outer marker inbound"],["U","Unforecast weather"],["S","Safety of flight"],["V","Vacating an altitude"],["F","FAF inbound"],["R","Radio / nav failure"],["C","Compulsory reporting point"],["500","Unable 500 fpm"]]},
+ {id:"mcp",name:"MCPRAWNTTS",topic:"Special use airspace",items:[["M","MOA"],["C","Controlled firing area"],["P","Prohibited area"],["R","Restricted area"],["A","Alert area"],["W","Warning area"],["N","National Security Area"],["T","TFR"],["T","TRSA"],["S","SFRA"]]},
+ {id:"foe",name:"FOE",topic:"Instrument scanning errors",items:[["F","Fixation"],["O","Omission"],["E","Emphasis"]]},
+ {id:"craft",bonus:true,name:"CRAFT",topic:"Copying an IFR clearance",items:[["C","Clearance limit"],["R","Route"],["A","Altitude (initial / expect)"],["F","Frequency (departure)"],["T","Transponder code"]]},
+ {id:"avef",bonus:true,name:"AVEF",topic:"Lost comms: which route · 91.185",items:[["A","Assigned route"],["V","Vectored route"],["E","Expected route"],["F","Filed route"]]},
+ {id:"mea",bonus:true,name:"MEA",topic:"Lost comms: fly the highest altitude of",items:[["M","Minimum IFR altitude"],["E","Expected altitude"],["A","Assigned altitude"]]},
+ {id:"fivet",bonus:true,name:"5 Ts",topic:"At every fix",items:[["T","Turn"],["T","Time"],["T","Twist"],["T","Throttle"],["T","Talk"]]},
+ /* ILS & approaches, Q47–63. list:true = tiles are codes, not letters of a word. decoys = wrong answers written for that set. */
+ {id:"ilsvrg",grp:"ils",list:true,name:"ILS V·R·G",topic:"ILS components · Q47",items:[["V","Visual: ALS, runway environment"],["R","Range: marker beacons, DME"],["G","Guidance: localizer, glideslope"]],decoys:["Visual: localizer, glideslope","Range: approach lights, VASI","Guidance: marker beacons, DME","Guidance: radar vectors"]},
+ {id:"markers",grp:"ils",list:true,name:"OM MM IM",topic:"Marker beacons · Q48",items:[["OM","Blue · dashes · 4–7 nm, GS intercept"],["MM","Amber · dot-dash · ~3,500 ft, Cat I DA"],["IM","White · dots · Cat II/III DA"]],decoys:["Blue · dots · Cat II/III DA","Amber · dashes · 4–7 nm out","White · dot-dash · ~3,500 ft","Blue · dot-dash · Cat I DA"]},
+ {id:"land",grp:"ils",list:true,name:"91.175",topic:"Landing under IFR · Q51",items:[["P","Position: normal descent & maneuvers"],["V","Visibility: at least the plate’s"],["V","Visual ref: runway environment in sight"]],decoys:["Position: within one dot of glideslope","Visibility: ceiling at or above minimums","Visual ref: runway lights only"]},
+ {id:"alsf",grp:"ils",nolight:true,name:"ALSF",topic:"High intensity · -1 red terminating bars, -2 red side-row bars",items:[["A","Approach"],["L","Lighting"],["S","System"],["F","Sequenced flashing lights"]],decoys:["Airport","Alignment","Landing","Lateral","Strobe","Short","Flood lights","Final approach"]},
+ {id:"malsr",grp:"ils",nolight:true,name:"MALSR",topic:"Medium intensity, with RAIL",items:[["M","Medium-intensity"],["A","Approach"],["L","Lighting"],["S","System"],["R","Runway alignment indicator lights"]],decoys:["Minimum","Marker beacon","Airport","Alignment","Landing","Localizer","Strobe","Sequenced flashers","Runway end identifier lights","Rotating beacon"]},
+ {id:"ssalr",grp:"ils",nolight:true,name:"SSALR",topic:"ALSF-2 can run as SSALR in Cat I",items:[["S","Simplified"],["S","Short"],["A","Approach"],["L","Lighting"],["S","System"],["R","Runway alignment indicator lights"]],decoys:["Sequenced","Standard","Steady","Strobe","Airport","Landing","Runway end identifier lights","Runway centerline lights"]},
+ {id:"prec",grp:"ils",list:true,name:"ILS MLS PAR",topic:"Precision approaches · Q52–53",items:[["ILS","Instrument Landing System"],["MLS","Microwave Landing System"],["PAR","Precision Approach Radar"]],decoys:["Instrument Lateral System","Multilateration Landing System","Precision Area RNAV","Primary Approach Radar"]},
+ {id:"npa",grp:"ils",list:true,name:"RNAV LOC VOR ASR",topic:"Non-precision approaches · Q54–55",items:[["RNAV","RNAV (GPS) to LNAV minimums"],["LOC","Localizer only, no glideslope"],["VOR","VOR approach"],["ASR","Airport Surveillance Radar"]],decoys:["Approach Sequencing Radar","Localizer with glideslope","RNAV (GPS) to LPV minimums","Area Surveillance RNAV"]},
+ {id:"lpv",grp:"ils",nolight:true,name:"LPV",topic:"RNAV to a DA · needs WAAS",items:[["L","Localizer"],["P","Performance"],["V","with Vertical guidance"]],decoys:["Lateral","Landing","Precision","Path","Vectors","VNAV"]},
+ {id:"rnav",grp:"ils",list:true,name:"RNAV minimums",topic:"RNAV approach types · Q56–58",items:[["LP","Lateral only, WAAS · MDA"],["LNAV","Lateral, +V advisory only · MDA"],["L/VNAV","Approved glidepath, baro or WAAS · DA"],["LPV","Approved glidepath, WAAS · DA"]],decoys:["Lateral only, no WAAS · DA","Approved glidepath, WAAS · MDA","Advisory glidepath · DA","Approved glidepath, baro only · MDA"]},
+ {id:"cdi",grp:"ils",list:true,name:"GPS CDI scale",topic:"Non-WAAS sensitivity · Q59–60",items:[["ENR","Enroute: 5 nm (WAAS 2), beyond 30 nm"],["TERM","Terminal: 1 nm, 30 nm to 2 nm before FAF"],["APR","Approach: 0.3 nm, 2 nm before FAF to MAP"]],decoys:["Terminal: 0.3 nm, inside 30 nm","Approach: 1 nm, from the FAF","Enroute: 1 nm, beyond 30 nm","Approach: 0.3 nm, from 5 nm before FAF"]},
+ {id:"alt123",grp:"ils",list:true,name:"1-2-3 rule",topic:"Alternate required · Q62",items:[["1","1 hr before to 1 hr after ETA"],["2","Ceiling below 2,000 ft"],["3","Visibility below 3 SM"]],decoys:["2 hr before to 2 hr after ETA","Ceiling below 1,000 ft","Visibility below 1 SM","Ceiling below 3,000 ft","Visibility below 5 SM"]},
+ {id:"inop",grp:"ils",list:true,name:"Inop tables",topic:"Approach lights out · Q63",items:[["T1","ILS/PAR/LPV/GLS: any ALS but ODALS out +¼ mile"],["T2","Only approaches with RVR minimums"],["T3","All others: ALSF, MALSR, SSALR out +½ mile"]],decoys:["ILS/PAR/LPV/GLS: any ALS out +½ mile","Only non-precision approaches","All others: any ALS out +¼ mile","Only circling minimums"]},
+ /* Quick-review sheets: procedures, nav aids, ILS, RNAV/RNP, charts, attitude flying */
+ {id:"sharptt",grp:"qr",name:"SHARP TT",topic:"Don’t fly the procedure turn when… · AIM 5-4-9",breaks:[5],items:[["S","Straight-in approach clearance"],["H","Holding in lieu of a PT"],["A","Arc (DME arc)"],["R","Radar vectors to final"],["P","PT not depicted (NoPT)"],["T","Timed approach from a holding fix"],["T","Teardrop course reversal"]],decoys:["Sidestep clearance","Speed restriction","Hold-short instruction","Heading assigned","Approach clearance","Altitude assigned","Runway change","Radar contact","Parallel holding entry","Pilot’s discretion descent","Teardrop holding entry","Transition route"]},
+ {id:"rwyenv",grp:"qr",name:"Runway environment",topic:"A Tall Thin Tower Radioed: “Visual! Touchdown Today, Runway Ready” · 91.175",breaks:[1,4,5,6,8],words:["A","Tall","Thin","Tower","Radioed","Visual","Touchdown","Today","Runway","Ready"],items:[["A","Approach light system (100-ft rule)"],["T","Threshold"],["T","Threshold markings"],["T","Threshold lights"],["R","REIL (runway end identifier lights)"],["V","Visual glideslope indicator (VASI/PAPI)"],["T","Touchdown zone or its markings"],["T","Touchdown zone lights"],["R","Runway or runway markings"],["R","Runway lights"]],decoys:["Airport rotating beacon","Apron floodlights","Taxiway edge lights","Taxiway centerline lights","Tower beacon","Rotating beacon","Runway distance remaining signs","Runway hold-short markings","Vehicle roadway markings","VOR checkpoint sign"]},
+ {id:"vorsv",grp:"qr",list:true,name:"VOR service volumes",topic:"Standard volumes · AIM 1-1-8",items:[["T","Terminal: 25 NM, 1,000–12,000 ft"],["L","Low: 40 NM, 1,000–18,000 ft"],["H","High: 130 NM, 18,000–45,000 ft"]],decoys:["Terminal: 40 NM, 1,000–18,000 ft","Low: 25 NM, 1,000–12,000 ft","High: 100 NM, 1,000–14,500 ft","Low: 70 NM, 1,000–18,000 ft"]},
+ {id:"ilscat",grp:"qr",list:true,name:"ILS categories",topic:"Lowest DH and RVR · AIM 1-1-9",items:[["I","DH 200 ft · RVR 2,400 (1,800)"],["II","DH 100 ft · RVR 1,200"],["IIIa","DH below 100 or none · RVR 700+"],["IIIb","DH below 50 or none · RVR 150–700"],["IIIc","No DH · no RVR limit"]],decoys:["DH 250 ft · RVR 4,000","DH 100 ft · RVR 2,400","DH 50 ft · RVR 600","DH 200 ft · RVR 1,200"]},
+ {id:"mkrtone",grp:"qr",list:true,nolight:true,name:"Marker tones",topic:"All transmit on 75 MHz",items:[["OM","400 Hz"],["MM","1,300 Hz"],["IM","3,000 Hz"]],decoys:["75 Hz","1,000 Hz","2,400 Hz","90 Hz","150 Hz"]},
+ {id:"ndbcls",grp:"qr",list:true,nolight:true,name:"NDB classes",topic:"Service volume by class",items:[["CL","15 NM"],["MH","25 NM"],["H","50 NM"],["HH","75 NM"]],decoys:["40 NM","100 NM","130 NM","10 NM"]},
+ {id:"gpssat",grp:"qr",list:true,name:"GPS satellites",topic:"How many for what",items:[["3","2D position"],["4","3D position (adds altitude)"],["5","RAIM fault detection (or 4 + baro)"],["6","Fault exclusion, FDE (or 5 + baro)"]],decoys:["WAAS corrections","LPV approach","Great-circle navigation","Differential GPS"]},
+ {id:"minima",grp:"qr",list:true,name:"Minima & equipment",topic:"What each line of minimums needs",items:[["GLS","GBAS · DA"],["LPV","WAAS · DA"],["LP","WAAS · MDA"],["L/VNAV","WAAS or baro-VNAV · DA"],["LNAV","Basic IFR GPS · MDA"]],decoys:["Baro-VNAV only · MDA","Basic IFR GPS · DA","GBAS · MDA","DME/DME · DA"]},
+ {id:"rnpval",grp:"qr",list:true,name:"RNP values",topic:"Accuracy 95% of the time",items:[["ENR","RNP 2.0 (2 NM)"],["TERM","RNP 1.0 (1 NM)"],["APP","RNP 0.3 (0.3 NM)"]],decoys:["RNP 5.0 (5 NM)","RNP 0.1 (0.1 NM)","RNP 4.0 (4 NM)","RNP 0.5 (0.5 NM)"]},
+ {id:"grad",grp:"qr",list:true,nolight:true,name:"Descent gradients",topic:"Gradient % = tan(angle) × 100",items:[["2°","3.5%"],["3°","5.2%"],["4°","7.0%"],["5°","8.7%"]],decoys:["2.0%","3.0%","6.0%","10%","4.2%"]},
+ {id:"altmarks",grp:"qr",list:true,name:"Chart altitudes",topic:"Airspeeds use the same marks",items:[["MIN","Underlined"],["MAX","Overlined"],["MAND","Under- and overlined"],["REC","No line"]],decoys:["Boxed","In parentheses","Italic","Asterisk"]},
+ {id:"cia",grp:"qr",name:"CIA",topic:"Basic attitude instrument skills",items:[["C","Cross-check"],["I","Instrument interpretation"],["A","Aircraft control"]],decoys:["Control & performance","Course interception","Instrument approach","Attitude indicator","Altitude hold","Configuration"]}
+];
+/* Quick facts for Q47–63: Facts mode and Lightning. a = right answer, d = three wrong ones. */
+const FACTS = [
+ {src:"Q47",q:"The ILS “range” components are…",a:"Marker beacons, DME",d:["Localizer, glideslope","Approach lights, VASI","REIL, runway lights"]},
+ {src:"Q48",q:"Outer marker: color, code and distance",a:"Blue, dashes, 4–7 nm",d:["Amber, dot-dash, 4–7 nm","Blue, dots, 3,500 ft","White, dashes, 1 nm"]},
+ {src:"Q48",q:"Middle marker: color, code and distance",a:"Amber, dot-dash, ~3,500 ft",d:["Blue, dashes, ~3,500 ft","Amber, dots, 4–7 nm","White, dot-dash, 1,000 ft"]},
+ {src:"Q48",q:"The inner marker marks…",a:"The Cat II/III decision altitude",d:["The Cat I decision altitude","The glideslope intercept","The FAF on a LOC"]},
+ {src:"Q49",q:"Where is the localizer antenna?",a:"Past the departure end, on centerline",d:["At the approach end, offset","Beside the touchdown zone","At the outer marker"]},
+ {src:"Q49",q:"Localizer coverage within 10 nm",a:"35° each side",d:["10° each side","18° each side","3–6° each side"]},
+ {src:"Q49",q:"Localizer coverage from 10 to 18 nm",a:"10° each side",d:["35° each side","5° each side","1.4° each side"]},
+ {src:"Q49",q:"Localizer course width",a:"3°–6°, 700 ft wide at the threshold",d:["1.4°, 700 ft at the threshold","10°, 1,000 ft at the threshold","35°, 500 ft at the threshold"]},
+ {src:"Q37",q:"Localizer frequencies",a:"108.10–111.95, odd tenths",d:["108.10–111.95, even tenths","112.00–117.95","329–335 MHz"]},
+ {src:"Q50",q:"Where is the glideslope antenna?",a:"750–1,250 ft down the runway, 250–650 ft aside",d:["Past the departure end, on centerline","At the outer marker","3,500 ft before the threshold"]},
+ {src:"Q50",q:"Glideslope full-scale width",a:"1.4° (±0.7°)",d:["3°–6°","0.3°","5°"]},
+ {src:"Q50",q:"Glideslope usable range",a:"10 nm",d:["18 nm","25 nm","4–7 nm"]},
+ {src:"Q50",q:"Why intercept the glideslope at the published altitude?",a:"False glideslopes exist above the real one",d:["The localizer narrows above it","Marker beacons fail above it","The glideslope reverses below it"]},
+ {src:"Q51",q:"Only the approach lights in sight: how low can you go?",a:"100 ft above TDZE",d:["200 ft above TDZE","50 ft above TDZE","To the runway"]},
+ {src:"Q51",q:"To go below 100 ft on the approach lights, you also need…",a:"Red terminating bars or red side-row bars",d:["The sequenced flashers","Green threshold lights","A VASI"]},
+ {src:"Q51",q:"Red terminating bars belong to…",a:"ALSF-1",d:["ALSF-2","MALSR","ODALS"]},
+ {src:"Q51",q:"Red side-row bars belong to…",a:"ALSF-2",d:["ALSF-1","SSALR","MALSF"]},
+ {src:"Q51",q:"ODALS are used on…",a:"Non-precision runways",d:["Cat II/III ILS runways","Cat I ILS runways","Military runways only"]},
+ {src:"Q51",q:"91.175: what decides whether you can land?",a:"Flight visibility, not the ceiling",d:["The reported ceiling","Ceiling and visibility together","The RVR only"]},
+ {src:"Q52",q:"A precision approach has…",a:"Lateral + vertical guidance from a ground facility",d:["Any approach with a DA","Lateral + vertical guidance from GPS","RVR minimums"]},
+ {src:"Q53",q:"MLS frequency band",a:"5031–5091 MHz",d:["108–117.95 MHz","329–335 MHz","1030–1090 MHz"]},
+ {src:"Q55",q:"Radar approach with lateral guidance only",a:"ASR",d:["PAR","MLS","LPV"]},
+ {src:"Q55",q:"Radar approach with lateral and vertical guidance",a:"PAR",d:["ASR","LDA","LNAV"]},
+ {src:"Q56",q:"LNAV+V’s glidepath is…",a:"Advisory only: fly to the MDA",d:["Approved: fly to a DA","Required to fly the approach","Only available with baro-VNAV"]},
+ {src:"Q56",q:"LPV requires…",a:"WAAS",d:["Baro-VNAV","DME","A ground facility"]},
+ {src:"Q56",q:"LNAV/VNAV can use…",a:"GPS + baro-VNAV, or WAAS",d:["WAAS only","DME/DME only","A localizer"]},
+ {src:"Q57",q:"APV means…",a:"Approach with vertical guidance",d:["Approved precision vector","Approach procedure, visual","Altitude-protected vertical"]},
+ {src:"Q58",q:"LNAV/VNAV sensitivity near the runway",a:"Stays constant (linear)",d:["Increases (angular)","Decreases","Switches to 1 nm"]},
+ {src:"Q58",q:"LPV sensitivity near the runway",a:"Increases, like an ILS (angular)",d:["Stays constant (linear)","Decreases","Fixed at 1 nm"]},
+ {src:"Q59",q:"Enroute changes to terminal mode at…",a:"30 nm from the destination",d:["10 nm from the destination","2 nm before the FAF","50 nm from the destination"]},
+ {src:"Q60",q:"Terminal changes to approach mode at…",a:"2 nm before the FAF",d:["The FAF","30 nm out","5 nm before the FAF"]},
+ {src:"Q59",q:"Approach-mode CDI full scale (non-WAAS)",a:"0.3 nm",d:["1 nm","2 nm","5 nm"]},
+ {src:"Q61",q:"Standard takeoff minimums, 1–2 engines",a:"1 SM",d:["½ SM","2 SM","3 SM"]},
+ {src:"Q61",q:"Standard takeoff minimums, more than 2 engines",a:"½ SM",d:["1 SM","¼ SM","2 SM"]},
+ {src:"Q61",q:"Who must use standard takeoff minimums?",a:"Parts 121, 125, 129, 135, not Part 91",d:["Everyone flying IFR","Part 91 only","Single-engine aircraft only"]},
+ {src:"Q62",q:"You need an alternate if the destination forecast (ETA ±1 hr) is…",a:"Below 2,000 ft ceiling or 3 SM",d:["Below 1,000 ft or 3 SM","Below 2,000 ft or 1 SM","Below 3,000 ft or 5 SM"]},
+ {src:"Q63",q:"Approach lights inop: what do you check first?",a:"The notes on the approach plate",d:["The Chart Supplement","The Inoperative Components Table","NOTAMs only"]},
+ {src:"Q63",q:"ILS, MALSR out, no note on the plate: visibility…",a:"+¼ mile (Table 1)",d:["+½ mile","No change","+1 mile"]},
+ {src:"Q63",q:"VOR approach, MALSR out: visibility…",a:"+½ mile (Table 3)",d:["+¼ mile","No change","+1 mile"]},
+ {src:"Q63",q:"VOR approach, MALSF out: visibility…",a:"+¼ mile (Table 3)",d:["+½ mile","No change","+1 mile"]},
+ {src:"Q63",q:"Inoperative components Table 2 applies to…",a:"Approaches with RVR minimums",d:["All non-precision approaches","Circling approaches","Approaches without lights"]}
+];
+FACTS.forEach(f=>{ f.t = ({Q59:"nav",Q60:"nav",Q61:"proc",Q62:"proc"})[f.src] || "ils"; });
+/* Quick-review sheets, written as questions. t = topic for the Facts filter. */
+FACTS.push(
+ /* ILS */
+ {t:"ils",src:"ILS",q:"Glideslope frequency band",a:"329.3–335 MHz (UHF), paired with the LOC",d:["108.1–111.95 MHz (VHF)","75 MHz","962–1213 MHz"]},
+ {t:"ils",src:"ILS",q:"Marker beacons transmit on…",a:"75 MHz",d:["329 MHz","108.1 MHz","400 kHz"]},
+ {t:"ils",src:"ILS",q:"Outer marker tone",a:"400 Hz",d:["1,300 Hz","3,000 Hz","75 Hz"]},
+ {t:"ils",src:"ILS",q:"Middle marker tone",a:"1,300 Hz",d:["400 Hz","3,000 Hz","900 Hz"]},
+ {t:"ils",src:"ILS",q:"A back-course marker shows…",a:"The FAF on some back-course approaches",d:["The Cat II decision height","The glideslope intercept","The localizer critical area"]},
+ {t:"ils",src:"ILS",q:"Typical localizer total width",a:"5° (2.5° each side)",d:["10° (5° each side)","1.4°","20°"]},
+ {t:"ils",src:"ILS",q:"A localizer compared with a VOR is…",a:"About 4 times more sensitive",d:["Twice as sensitive","Equally sensitive","Half as sensitive"]},
+ {t:"ils",src:"ILS",q:"Localizer coverage holds up to…",a:"4,500 ft above the antenna",d:["1,000 ft above the antenna","10,000 ft MSL","18,000 ft MSL"]},
+ {t:"ils",src:"ALS",q:"Approach lights on a precision runway extend…",a:"2,400–3,000 ft",d:["1,400–1,500 ft","1,000 ft","5,000 ft"]},
+ {t:"ils",src:"ALS",q:"Approach lights on a non-precision runway extend…",a:"1,400–1,500 ft",d:["2,400–3,000 ft","500 ft","3,500 ft"]},
+ {t:"ils",src:"ALS",q:"Sequenced flashers (“the rabbit”) run…",a:"Twice per second",d:["Once every 2 seconds","10 times per second","Once per second"]},
+ {t:"ils",src:"ILS",q:"Cat I ILS lowest decision height",a:"200 ft",d:["100 ft","250 ft","50 ft"]},
+ {t:"ils",src:"ILS",q:"Cat II ILS lowest DH and RVR",a:"100 ft, RVR 1,200",d:["200 ft, RVR 2,400","50 ft, RVR 600","100 ft, RVR 2,400"]},
+ {t:"ils",src:"ILS",q:"Cat I lowest RVR with touchdown-zone and centerline lights",a:"1,800 ft",d:["2,400 ft","1,200 ft","4,000 ft"]},
+ {t:"ils",src:"Approaches",q:"The true precision approaches are…",a:"ILS, PAR, GLS",d:["ILS, LPV, PAR","LPV, LNAV/VNAV, GLS","ILS, LDA, SDF"]},
+ {t:"ils",src:"Approaches",q:"An LDA is…",a:"A localizer not aligned with the runway",d:["A localizer with a 12° width","An LPV without WAAS","A back-course localizer"]},
+ {t:"ils",src:"Approaches",q:"SDF course width",a:"6° or 12°",d:["3°–6°","1.4°","35°"]},
+ {t:"ils",src:"Approaches",q:"An LDA with a glideslope counts as…",a:"An APV",d:["A precision approach","A non-precision approach","A visual approach"]},
+ /* Nav aids, GPS, RNAV, RNP */
+ {t:"nav",src:"VOR",q:"VOR full-scale CDI deflection",a:"10° each side",d:["2.5° each side","5° each side","35° each side"]},
+ {t:"nav",src:"VOR",q:"Before using a VOR you must…",a:"Identify it by its Morse code",d:["Check only its NOTAMs","Call flight service","Do a VOT check"]},
+ {t:"nav",src:"VOR",q:"Do standard service volumes limit published routes?",a:"No, published routes stand on their own",d:["Yes, always","Only above 18,000 ft","Only at night"]},
+ {t:"nav",src:"VOR",q:"The VOR MON promises…",a:"A MON airport within 100 NM in the CONUS",d:["A VOR every 40 NM","A MON airport within 25 NM","GPS backup everywhere"]},
+ {t:"nav",src:"VOR",q:"New MON coverage at 5,000 ft AGL",a:"70 NM",d:["40 NM","25 NM","130 NM"]},
+ {t:"nav",src:"VOR",q:"High VOR coverage from 1,000 to 14,500 ft",a:"40 NM",d:["100 NM","130 NM","25 NM"]},
+ {t:"nav",src:"VOR",q:"High VOR coverage from 45,000 to 60,000 ft",a:"100 NM",d:["130 NM","40 NM","200 NM"]},
+ {t:"nav",src:"VOR",q:"VOR check at a repair station: tolerance",a:"±4°",d:["±6°","±2°","±10°"]},
+ {t:"nav",src:"VOR",q:"Airborne landmark VOR check: where?",a:"Over a prominent point, preferably 20+ NM out",d:["Directly over the VOR","Within 5 NM of the VOR","Over the departure airport"]},
+ {t:"nav",src:"DME",q:"DME frequency band",a:"962–1213 MHz (UHF)",d:["108–117.95 MHz","190–535 kHz","329–335 MHz"]},
+ {t:"nav",src:"DME",q:"Directly over the station, DME reads…",a:"Your height in NM, not zero",d:["Zero","The station elevation","Nothing"]},
+ {t:"nav",src:"DME",q:"Slant-range error is negligible when you’re…",a:"1 NM away per 1,000 ft of height",d:["Inside 1 NM","Always under 5 NM","10 NM away per 1,000 ft"]},
+ {t:"nav",src:"NDB",q:"NDB frequency band",a:"190–535 kHz",d:["108–117.95 MHz","962–1213 MHz","75 MHz"]},
+ {t:"nav",src:"NDB",q:"Magnetic bearing to an NDB =",a:"Magnetic heading + relative bearing",d:["Magnetic heading − relative bearing","Relative bearing − heading","True heading + relative bearing"]},
+ {t:"nav",src:"NDB",q:"A compass locator is…",a:"A low-power NDB (under 25 W) at the OM or MM",d:["A VOR at the outer marker","A DME at the threshold","A 75 MHz marker beacon"]},
+ {t:"nav",src:"GPS",q:"The GPS constellation",a:"At least 24 satellites, ~10,900 NM up",d:["12 satellites, 1,000 NM up","24 satellites, 22,000 NM up","32 satellites, 500 NM up"]},
+ {t:"nav",src:"GPS",q:"GPS is designed so you always see at least…",a:"5 satellites",d:["3 satellites","4 satellites","8 satellites"]},
+ {t:"nav",src:"GPS",q:"Baro-aided RAIM needs…",a:"4 satellites + altimeter input",d:["3 satellites + altimeter","5 satellites + altimeter","6 satellites"]},
+ {t:"nav",src:"GPS",q:"A GPS CDI shows…",a:"Distance off course (linear)",d:["Angle off course","Time to the waypoint","Track error in degrees"]},
+ {t:"nav",src:"GPS",q:"GPS can replace ADF and DME except…",a:"On an NDB approach without “or GPS” in the title",d:["It never can","Enroute","When holding"]},
+ {t:"nav",src:"GPS",q:"Airborne GPS navigates along…",a:"Great-circle routes",d:["Rhumb lines","VOR radials","Magnetic bearings"]},
+ {t:"nav",src:"GPS",q:"WAAS is an example of…",a:"SBAS",d:["GBAS","RAIM","PBN"]},
+ {t:"nav",src:"GPS",q:"Europe’s version of WAAS",a:"EGNOS",d:["GLONASS","Galileo","LAAS"]},
+ {t:"nav",src:"GPS",q:"GBAS (formerly LAAS) compared with WAAS",a:"More accurate, much smaller area",d:["Less accurate, wider area","Same accuracy, satellite-based","Enroute use only"]},
+ {t:"nav",src:"GPS",q:"GBAS corrections reach the aircraft by…",a:"VHF data broadcast",d:["Geostationary satellite","UHF DME","Cellular data"]},
+ {t:"nav",src:"GPS",q:"GBAS enables…",a:"GLS approaches to a DA",d:["LPV approaches","LNAV only","Contact approaches"]},
+ {t:"nav",src:"RNAV",q:"Q routes are flown…",a:"FL180 to FL450",d:["1,200 AGL to 18,000 MSL","Below 10,000 ft","Above FL450"]},
+ {t:"nav",src:"RNAV",q:"T routes are flown…",a:"1,200 ft AGL to 18,000 MSL",d:["FL180 to FL450","Surface to 12,500 ft","Above FL290"]},
+ {t:"nav",src:"RNAV",q:"Published RNAV routes are ___ unless charted otherwise",a:"RNAV 2",d:["RNAV 1","RNAV 0.3","RNAV 5"]},
+ {t:"nav",src:"RNP",q:"RNP is RNAV plus…",a:"Onboard performance monitoring & alerting",d:["A VOR backup","WAAS","DME/DME updating"]},
+ {t:"nav",src:"RNP",q:"“RNAV (RNP)” in an approach title means…",a:"Authorization required (AR)",d:["WAAS required","Any IFR GPS will do","LPV minimums"]},
+ {t:"nav",src:"RNP",q:"Advanced RNP requires…",a:"RF legs, scalable RNP, parallel offsets",d:["WAAS and DME","Dual VORs","A ground facility"]},
+ {t:"nav",src:"RNP",q:"RNP on final approach",a:"0.3 NM, 95% of the time",d:["1 NM, 95% of the time","2 NM, 99% of the time","0.1 NM, 50% of the time"]},
+ {t:"nav",src:"RNP",q:"An RF leg is…",a:"Radius to fix",d:["Route to fix","Radial to fix","Runway final"]},
+ {t:"nav",src:"RNP",q:"A TF leg is…",a:"Track to fix",d:["Turn to fix","Time to fix","Terminal fix"]},
+ /* Procedures */
+ {t:"proc",src:"VDP · AIM 5-4-5",q:"On the profile view, a VDP is a…",a:"Bold V",d:["Maltese cross","Lightning bolt","Circled D"]},
+ {t:"proc",src:"VDP · AIM 5-4-5",q:"You can’t identify the VDP (no DME or GPS). Then…",a:"Fly it as if no VDP were published",d:["You can’t fly the approach","Start down at the FAF","Use timing only"]},
+ {t:"proc",src:"VDP · AIM 5-4-5",q:"VDPs are published on…",a:"Non-precision straight-in approaches",d:["ILS approaches","Circling-only approaches","Visual approaches"]},
+ {t:"proc",src:"VDA · AIM 5-4-5",q:"A VDA is…",a:"Advisory; all published altitudes still apply",d:["Mandatory to the runway","The same as a glideslope","Obstacle-protected to the runway"]},
+ {t:"proc",src:"VDA · AIM 5-4-5",q:"No VDA shown, or “VDA not authorized”, means…",a:"Don’t use a VDA below the MDA",d:["The approach is not authorized","Fly a 3° path anyway","Circle to land only"]},
+ {t:"proc",src:"VDA · AIM 5-4-5",q:"VDAs are not published on…",a:"Approaches with vertically guided minimums",d:["LNAV approaches","VOR approaches with a FAF","RNAV (GPS) approaches"]},
+ {t:"proc",src:"Lost comms · 91.185",q:"Lost comms, but you’re in VFR conditions",a:"Stay VFR and land as soon as practicable",d:["Climb to the MEA","Fly the filed route","Squawk 7700 and hold"]},
+ {t:"proc",src:"Lost comms · 91.185",q:"Lost comms, clearance limit is an approach fix",a:"Start the approach as close to EFC (or ETA) as possible",d:["Hold until fuel runs low","Start the approach on arrival, ignoring EFC","Go to the destination VOR and hold"]},
+ {t:"proc",src:"Lost comms · 91.185",q:"Lost comms, clearance limit is NOT an approach fix",a:"At EFC (or the limit), go to an approach fix and begin",d:["Hold at the limit until ATC calls","Land at the nearest airport","Fly the filed route to the alternate"]},
+ {t:"proc",src:"Lost comms · 91.185",q:"Lost comms squawk",a:"7600",d:["7700","7500","1200"]},
+ {t:"proc",src:"PT · AIM 5-4-9",q:"Procedure turn maximum speed",a:"200 KIAS",d:["230 KIAS","156 KIAS","250 KIAS"]},
+ {t:"proc",src:"PT · AIM 5-4-9",q:"PT with no teardrop or hold drawn: what’s mandatory?",a:"Turn on the charted side, within the distance",d:["The exact 45°/180° shape","A one-minute outbound leg","Nothing, it’s optional"]},
+ {t:"proc",src:"PT · AIM 5-4-9",q:"Typical “remain within” distance for a PT",a:"10 NM",d:["5 NM","4 NM","15 NM"]},
+ {t:"proc",src:"PT · AIM 5-4-9",q:"A procedure turn lets you…",a:"Reverse course, descend from the IAF, intercept inbound",d:["Hold for spacing","Skip the FAF","Climb to the MSA"]},
+ {t:"proc",src:"PT · AIM 5-4-9",q:"PT on the chart, but ATC clears you “straight-in”",a:"Don’t fly the PT",d:["Fly the PT anyway","Fly a teardrop instead","Hold once first"]},
+ {t:"proc",src:"AIM 5-5-4",q:"When can you descend to the next segment’s altitude?",a:"Cleared for the approach and established on a segment",d:["When ATC says “radar contact”","After the IAF, cleared or not","Only after the FAF"]},
+ {t:"proc",src:"Contact approach",q:"A contact approach is…",a:"Requested by the pilot only",d:["Initiated by ATC","Assigned in VMC","A visual approach at night"]},
+ {t:"proc",src:"Contact approach",q:"Contact approach weather",a:"1 SM ground visibility, clear of clouds",d:["1,000 ft ceiling and 3 SM","3 SM, clear of clouds","500 ft ceiling and 1 SM"]},
+ {t:"proc",src:"Contact approach",q:"On a contact approach, obstacle clearance is…",a:"The pilot’s responsibility",d:["ATC’s responsibility","Guaranteed to 500 ft","Provided by the MSA"]},
+ {t:"proc",src:"Visual approach",q:"Visual approach weather",a:"1,000 ft ceiling and 3 SM",d:["1 SM, clear of clouds","500 ft and 1 SM","3,000 ft and 5 SM"]},
+ {t:"proc",src:"Visual approach",q:"Who can start a visual approach?",a:"ATC or the pilot",d:["Only the pilot","Only ATC","Only at towered airports"]},
+ {t:"proc",src:"Visual approach",q:"For a visual approach you must have…",a:"The airport or the traffic to follow in sight",d:["The runway lights in sight","A VASI","The approach lights in sight"]},
+ {t:"proc",src:"Missed approach",q:"When do you go missed?",a:"At the MAP without visuals, unsafe approach, or ATC says",d:["Only at the MAP","When the glideslope flags, never otherwise","Below 500 ft AGL"]},
+ {t:"proc",src:"91.175",q:"How many visual references do you need below DA/MDA?",a:"Any one of the ten",d:["At least two","The runway itself","The approach lights"]},
+ /* Descent math rules */
+ {t:"math",src:"Descent math",q:"Descent rate on a 3° glide path",a:"Groundspeed × 5",d:["Groundspeed × 10","Groundspeed × 3","Groundspeed ÷ 2"]},
+ {t:"math",src:"Descent math",q:"Where to start a 3° descent",a:"Altitude to lose ÷ 300 = NM",d:["Altitude to lose ÷ 100 = NM","Altitude to lose ÷ 1,000 = NM","Altitude to lose ÷ 500 = NM"]},
+ {t:"math",src:"Descent math",q:"VDP by distance",a:"MDH ÷ 300 = NM from the threshold",d:["MDA ÷ 300 = NM","MDH ÷ 100 = NM","HAA ÷ 200 = NM"]},
+ {t:"math",src:"Descent math",q:"VDP by time",a:"Subtract MDH ÷ 10 seconds from FAF–MAP time",d:["Add MDH ÷ 10 seconds","Subtract MDA ÷ 10 seconds","Subtract MDH ÷ 100 minutes"]},
+ {t:"math",src:"Descent math",q:"Descent gradient (%)",a:"tan(angle) × 100",d:["angle × 100","sin(angle) × 60","angle ÷ 3"]},
+ {t:"math",src:"Descent math",q:"Gradient of a 4° path",a:"7%",d:["4%","5.2%","10%"]},
+ {t:"math",src:"Descent math",q:"Descent rate from a gradient",a:"Groundspeed × gradient %",d:["Groundspeed ÷ gradient %","Gradient × 100","True airspeed × angle"]},
+ /* Chart symbols */
+ {t:"charts",src:"Profile view",q:"Maltese cross on the profile",a:"FAF of a non-precision approach",d:["Glideslope intercept","VDP","Missed approach point"]},
+ {t:"charts",src:"Profile view",q:"Lightning-bolt arrow on the profile",a:"Glideslope intercept: the precision FAF",d:["Non-precision FAF","A stepdown fix","A lead radial"]},
+ {t:"charts",src:"Profile view",q:"Stepdown fixes on final apply to…",a:"Non-precision minimums only",d:["All lines of minimums","ILS and LPV only","Circling only"]},
+ {t:"charts",src:"Profile view",q:"A shaded visual segment below the MDA/DA means…",a:"Clear of obstacles on a 34:1 slope",d:["No descent allowed","The circling area","The missed approach area"]},
+ {t:"charts",src:"Altitudes",q:"Underlined altitude",a:"Minimum",d:["Maximum","Mandatory","Recommended"]},
+ {t:"charts",src:"Altitudes",q:"Overlined altitude",a:"Maximum",d:["Minimum","Mandatory","Recommended"]},
+ {t:"charts",src:"Altitudes",q:"Underlined and overlined altitude",a:"Mandatory",d:["Minimum","Maximum","Recommended"]},
+ {t:"charts",src:"Altitudes",q:"Altitude with no line",a:"Recommended",d:["Minimum","Maximum","Mandatory"]},
+ {t:"charts",src:"NAVAIDs",q:"An underlined NAVAID frequency means…",a:"No voice on that frequency",d:["Part-time facility","Compulsory reporting","DME only"]},
+ {t:"charts",src:"Fixes",q:"A solid black triangle is…",a:"A compulsory reporting point",d:["An on-request reporting point","An obstacle","A VDP"]},
+ {t:"charts",src:"Fixes",q:"An open (white) triangle is…",a:"An on-request reporting point",d:["A compulsory reporting point","A flyover waypoint","An obstacle"]},
+ {t:"charts",src:"Minimums",q:"Minimums in parentheses are…",a:"Military only, not for civil pilots",d:["Circling only","For inoperative lights","Category E only"]},
+ {t:"charts",src:"Minimums",q:"“24” in the visibility column means…",a:"RVR 2,400 ft",d:["2.4 SM","24 SM","A 240 ft ceiling"]},
+ {t:"charts",src:"Minimums",q:"HAT vs HAA",a:"HAT: straight-in, above TDZE · HAA: circling, above airport",d:["They’re the same","HAT: circling · HAA: straight-in","HAA: above ground level anywhere"]},
+ {t:"charts",src:"MSA",q:"An MSA gives…",a:"1,000 ft obstacle clearance within 25 NM",d:["2,000 ft clearance within 30 NM","500 ft clearance within 10 NM","Navigation coverage within 25 NM"]},
+ {t:"charts",src:"TAA",q:"The three TAA areas",a:"Straight-in, left base, right base",d:["North, south, east","Initial, intermediate, final","Feeder, transition, final"]},
+ {t:"charts",src:"Fixes",q:"A computer navigation fix (CNF)…",a:"Has no ATC function",d:["Is a compulsory report","Marks the FAF","Is a VOR changeover point"]},
+ {t:"charts",src:"Fixes",q:"“LR-198” on a chart",a:"Lead radial: start your turn",d:["Localizer radial 198","Low route 198","Lost comms radial"]},
+ {t:"charts",src:"Routes",q:"On a STAR or DP route, a MOCA is marked with…",a:"An asterisk",d:["A box","A double underline","Parentheses"]},
+ {t:"charts",src:"Holding",q:"A hold in lieu of a procedure turn is drawn…",a:"As a bold racetrack",d:["Dotted","Thin and dashed","In parentheses"]},
+ /* Attitude instrument flying */
+ {t:"att",src:"Attitude flying",q:"The three basic attitude-flying skills",a:"Cross-check, interpretation, aircraft control",d:["Scan, fixate, correct","Pitch, bank, power","Aviate, navigate, communicate"]},
+ {t:"att",src:"Control & performance",q:"The control instruments are…",a:"Attitude indicator and power instruments",d:["Altimeter and VSI","Heading indicator and TC","Airspeed and altimeter"]},
+ {t:"att",src:"Control & performance",q:"Control & performance: what do you do first?",a:"Set power and attitude, then check performance",d:["Chase the VSI","Trim first, then set power","Watch the altimeter"]},
+ {t:"att",src:"Control & performance",q:"Pitch performance instruments",a:"Altimeter, airspeed, VSI",d:["Attitude, heading, TC","Tach and manifold pressure","Compass and heading indicator"]},
+ {t:"att",src:"Control & performance",q:"Bank performance instruments",a:"Heading indicator, turn coordinator, compass",d:["Altimeter and VSI","Airspeed and tach","Attitude indicator only"]},
+ {t:"att",src:"Primary & supporting",q:"Primary & supporting divides the panel by…",a:"Pitch, bank and power",d:["Control and performance","Gyro and pitot-static","Primary and backup"]},
+ {t:"att",src:"Primary & supporting",q:"The power instruments",a:"Airspeed, tachometer, manifold pressure",d:["Altimeter and VSI","Attitude and heading","Turn coordinator and compass"]},
+ {t:"att",src:"Attitude flying",q:"The common scan errors",a:"Fixation, omission, emphasis",d:["Fixation, overcontrol, error","Omission, distraction, delay","Emphasis, haste, fatigue"]},
+ {t:"att",src:"Primary & supporting",q:"Primary bank instrument once established in a standard-rate turn",a:"Turn coordinator",d:["Heading indicator","Attitude indicator","Magnetic compass"]},
+ {t:"att",src:"Primary & supporting",q:"Primary pitch instrument in level flight",a:"Altimeter",d:["Attitude indicator","VSI","Airspeed indicator"]}
+);
+/* Descent math: fresh numbers every time */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const fmtT=s=>{s=Math.round(s);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");};
+const fNM=x=>(Math.round(x*10)/10)+" NM";
+const f3=x=>String(((x%360)+360)%360||360).padStart(3,"0")+"°";
+const ft=x=>x.toLocaleString("en-US");
+function mathQ(){
+  for(let n=0;n<25;n++){
+    const k=pick(["vdpd","vdpt","vs","tod","vsg","slant","ndb"]); let q;
+    if(k==="vdpd"){const h=pick([330,360,390,420,450,480,510,540,600,660,720,750]);
+      q={src:"Math · VDP by distance",q:`MDH is ${h} ft. How far from the threshold is the VDP?`,a:fNM(h/300),d:[fNM(h/100),fNM(h/200),fNM(h/600)]};}
+    else if(k==="vdpt"){const h=pick([400,450,480,500,520,560,600,640,700]),T=pick([180,200,210,225,240,255,270,300]);
+      q={src:"Math · VDP by time",q:`MDH ${h} ft, FAF to MAP ${fmtT(T)}. When are you at the VDP (time from the FAF)?`,a:fmtT(T-h/10),d:[fmtT(T-h/5),fmtT(T-h/20),fmtT(T+h/10)]};}
+    else if(k==="vs"){const g=pick([70,80,90,100,110,120,130,140,150]);
+      q={src:"Math · 3° descent rate",q:`${g} kt groundspeed on a 3° glide path. Descent rate?`,a:`${g*5} fpm`,d:[`${g*10} fpm`,`${g*3} fpm`,`${g*7} fpm`]};}
+    else if(k==="tod"){const alt=pick([1500,1800,2400,3000,3600,4500,6000,7500,9000]);
+      q={src:"Math · top of descent",q:`You need to lose ${ft(alt)} ft on a 3° path. Start down how far out?`,a:fNM(alt/300),d:[fNM(alt/100),fNM(alt/600),fNM(alt/200)]};}
+    else if(k==="vsg"){const [ang,gr]=pick([[2,3.5],[4,7],[5,8.7]]),g=pick([90,100,120,150,180]),r=x=>ft(Math.round(x/10)*10)+" fpm";
+      q={src:"Math · steeper and shallower paths",q:`A ${ang}° descent at ${g} kt groundspeed. Descent rate?`,a:r(g*gr),d:[r(g*5),r(g*gr*2),r(g*10)]};}
+    else if(k==="slant"){const alt=pick([2000,3000,4000,5000,6000,8000,10000]);
+      q={src:"Math · DME slant range",q:`${ft(alt)} ft above the DME station. Slant-range error is negligible beyond…`,a:fNM(alt/1000),d:[fNM(alt/500),fNM(alt/2000),fNM(alt/1000+5)]};}
+    else {const mh=pick([30,60,90,120,150,200,240,270,300,330]),rb=pick([30,45,60,90,270,300,315,330]);
+      q={src:"Math · NDB bearing",q:`Magnetic heading ${f3(mh)}, relative bearing ${f3(rb)}. Magnetic bearing to the NDB?`,a:f3(mh+rb),d:[f3(mh-rb),f3(mh+rb+180),f3(rb-mh)]};}
+    if(new Set([q.a,...q.d]).size===4) return Object.assign(q,{gen:true,t:"math"});
+  }
+  return {gen:true,t:"math",src:"Math · 3° descent rate",q:"100 kt groundspeed on a 3° glide path. Descent rate?",a:"500 fpm",d:["1000 fpm","300 fpm","700 fpm"]};
+}
+/* Plausible wrong answers, so the first letter alone never gives it away. */
+const DECOYS = ["Autopilot","Alternate static source","Ammeter","ADS-B Out","Approach clearance","Backup battery","Bearing selector","Carburetor heat","Cowl flaps","Climb clearance","Course deviation indicator","Defroster","De-ice boots","Descent clearance","Dual GPS","EGT gauge","Engine monitor","Entering IMC","Flap position indicator","Fuel flow meter","Fire extinguisher","Frequency change","GPS (WAAS)","Glideslope receiver","Gyro compass","G-meter","Heading bug","Hold short","Ignition check","IFR clearance","Localizer receiver","Level-off","Logbook","Marker beacon receiver","Mode C","MFD","MEA change","Nav lights test","NOTAM check","Outside air temperature","Oxygen","Overspeed warning","On-course report","Pitot heat","Prop governor","Primary flight display","Radar altimeter","Rudder trim","Runway change","Restricted area entry","Stall warning","Strobe test","Speed brakes","Squawk change","Transponder","Turn coordinator","Trim indicator","Taxi light","Unusual attitude","Unicom call","VSI","Vacuum gauge","VOR passage","Visual approach","Weather radar","Wind correction"];
+
+const KEY = "ir-acronym-annunciator-v1";
+const BYID = Object.fromEntries(SETS.map(s=>[s.id,s]));
+const norm = t => t.toLowerCase().replace(/\(.*?\)/g,"").split("·")[0].trim();
+const POOL = [];
+SETS.forEach(s=>s.items.forEach(it=>POOL.push({l:it[0],t:it[1],set:s})));
+DECOYS.forEach(t=>POOL.push({l:t[0].toUpperCase(),t,set:null}));
+const LIGHT = [];
+SETS.filter(s=>!s.nolight).forEach(s=>s.items.forEach(it=>LIGHT.push({t:it[1],set:s})));
+
+function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
+let P = load() || {stars:{spell:{},order:{}},best:0};
+if(P.sound===undefined) P.sound=true;
+if(!P.bestLevel) P.bestLevel=0;
+if(!P.factsBestBy) P.factsBestBy = P.factsBest ? {all:P.factsBest} : {};
+if(!P.factTopic) P.factTopic="all";
+let mode = "spell", screen = "menu", R = null, timer = null, resetArm = false;
+
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function starsOf(m,id){return (P.stars[m]&&P.stars[m][id])||0;}
+function starStr(n){return "<i>"+"★".repeat(n)+"</i>"+"★".repeat(3-n);}
+function buzz(){try{navigator.vibrate&&navigator.vibrate(60);}catch(e){}}
+function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
+function weakest(m){
+  const min=Math.min(...SETS.map(s=>starsOf(m,s.id)));
+  const c=SETS.filter(s=>starsOf(m,s.id)===min); const guide=c.filter(s=>!s.bonus);
+  return shuffle(guide.length?guide:c)[0];
+}
+const $ = id => document.getElementById(id);
+
+/* ---------- Sound: synthesized with Web Audio, no files ---------- */
+let AC = null;
+function audio(){
+  if(!P.sound) return null;
+  try{
+    if(!AC){const C=window.AudioContext||window.webkitAudioContext; if(!C) return null; AC=new C();}
+    if(AC.state==="suspended") AC.resume();
+  }catch(e){return null;}
+  return AC;
+}
+function tone(freq,start,dur,type,vol,slideTo){
+  const ac=audio(); if(!ac) return;
+  try{
+    const t0=ac.currentTime+start, o=ac.createOscillator(), g=ac.createGain();
+    o.type=type||"triangle"; o.frequency.setValueAtTime(freq,t0);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo,t0+dur);
+    g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol||0.14,t0+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0+dur+0.03);
+  }catch(e){}
+}
+const SFX = {
+  right(){tone(880,0,.09);tone(1320,.07,.13);},
+  wrong(){tone(160,0,.32,"sawtooth",.11,85);tone(120,0,.32,"square",.05,70);},
+  bonus(){[660,880,1175].forEach((f,i)=>tone(f,i*.06,.14,"triangle",.13));},
+  level(){[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.08,.2,"square",.06));},
+  tick(){tone(1700,0,.035,"square",.05);},
+  over(){[523,392,262].forEach((f,i)=>tone(f,i*.16,.26,"triangle",.13));},
+  sweep(n){for(let i=0;i<n;i++) tone(520+i*45,i*.055,.07,"sine",.06);},
+  star(){[784,988,1175,1568].forEach((f,i)=>tone(f,i*.09,.22,"triangle",.11));}
+};
+function soundIcon(){
+  const b=$("snd"); if(!b) return;
+  b.setAttribute("aria-pressed",String(!!P.sound));
+  b.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/>${P.sound?'<path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>':'<path d="M16 9l5 6M21 9l-5 6"/>'}</svg>`;
+}
+
+function lights(set, cls){
+  let h='<div class="lights" id="lights">';
+  set.items.forEach((it,i)=>{
+    if(set.breaks&&set.breaks.includes(i)) h+='<span class="gap"></span>';
+    h+=`<span class="lt ${cls(i)}" style="--i:${i}">${it[0]}</span>`;
+  });
+  return h+"</div>";
+}
+
+/* ---------- Arcade streaks: combo bar, fire, callouts, combo sounds ---------- */
+const REDUCED=(()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches;}catch(e){return false;}})();
+let NOISE=null;
+function noiseBuf(ac){ if(!NOISE){ const n=ac.sampleRate; NOISE=ac.createBuffer(1,n,n); const d=NOISE.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; } return NOISE; }
+function whoosh(start,dur,f0,f1,vol){
+  const ac=audio(); if(!ac) return;
+  try{
+    const t0=ac.currentTime+start, src=ac.createBufferSource(), bp=ac.createBiquadFilter(), g=ac.createGain();
+    src.buffer=noiseBuf(ac); src.loop=true; bp.type="bandpass"; bp.Q.value=1.1;
+    bp.frequency.setValueAtTime(f0,t0); bp.frequency.exponentialRampToValueAtTime(f1,t0+dur);
+    g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+dur*.25); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    src.connect(bp); bp.connect(g); g.connect(ac.destination); src.start(t0); src.stop(t0+dur+.05);
+  }catch(e){}
+}
+const PENTA=[0,2,4,7,9,12,14,16,19,21,24,26,28,31,33,36];
+Object.assign(SFX,{
+  combo(n){const f=523*Math.pow(2,PENTA[Math.min(n-2,PENTA.length-1)]/12); tone(f,0,.08,"square",.05); tone(f*1.5,.05,.13,"triangle",.09);},
+  ignite(){whoosh(0,.55,300,2600,.22); [523,659,784,1047].forEach((f,i)=>tone(f,.06+i*.06,.14,"square",.055));},
+  fanfare(k){whoosh(0,.45,400,3200,.18); [523,659,784,1047,1319].forEach((f,i)=>tone(f*k,i*.07,.18,"square",.06)); tone(2093*k,.38,.4,"triangle",.09);},
+  afterburner(){whoosh(0,1.1,70,1600,.32); tone(55,0,1,"sawtooth",.07,110); [659,880,1175,1568].forEach((f,i)=>tone(f,.3+i*.08,.2,"square",.06));},
+  boom(){whoosh(0,.7,1400,60,.42); tone(70,0,.6,"sine",.28,32);},
+  lost(){tone(392,0,.18,"sawtooth",.07,370); tone(330,.18,.18,"sawtooth",.07,311); tone(262,.36,.5,"sawtooth",.08,170);},
+  record(){[784,988,1175,1568,1976].forEach((f,i)=>tone(f,i*.06,.16,"square",.05)); tone(2349,.32,.45,"triangle",.09);}
+});
+const machOf=n=>"MACH "+(n/10).toFixed(1).replace(/\.0$/,"");
+function milestone(n){
+  if(n===3) return {t:"HEATING UP",s:"3 in a row",snd:()=>SFX.ignite()};
+  if(n===5) return {t:"ON FIRE!",s:"5 in a row",snd:()=>SFX.fanfare(1)};
+  if(n===8) return {t:"UNSTOPPABLE",s:"8 in a row",snd:()=>SFX.fanfare(1.122),big:true};
+  if(n===12) return {t:"AFTERBURNER!",s:"12 in a row",blue:true,snd:()=>SFX.afterburner(),big:true};
+  if(n===16) return {t:"MACH 1",s:"sonic boom · 16 in a row",blue:true,snd:()=>{SFX.boom();SFX.fanfare(1.26);},big:true};
+  if(n>=20&&n%5===0) return {t:machOf(n),s:n+" in a row",blue:true,snd:()=>{SFX.boom();SFX.fanfare(1.335);},big:true};
+  return null;
+}
+function streakLabel(n){ return n>=20?machOf(n):n>=16?"MACH 1":n>=12?"AFTERBURNER":n>=8?"UNSTOPPABLE":n>=5?"ON FIRE":n>=3?"HEATING UP":n===2?"COMBO":""; }
+function comboOf(){ return !R?0 : R.type==="light" ? R.streak : (R.combo||0); }
+function streakBar(){ const n=comboOf(), cls=n>=12?"blue":n>=3?"fire":n>=2?"warm":""; return `<div class="sbar ${cls}" id="sbar"><span>STREAK</span><b>${n}</b>${n>=2?`<span>· ${streakLabel(n)}</span>`:""}</div>`; }
+function hiStreak(){ return `<div class="hi"><button class="lbbtn" data-act="board">LEADERBOARD ›</button><span class="hs"><span>HI-STREAK</span><b>${P.bestStreak||0}</b></span></div>`; }
+function refreshBar(){ const sb=$("sbar"); if(sb) sb.outerHTML=streakBar(); }
+const CQ=[]; let cBusy=false;
+function callout(t,s,kind){ CQ.push([t,s,kind]); if(!cBusy) nextCallout(); }
+function nextCallout(){
+  const it=CQ.shift(), el=$("callout"); if(!it||!el){cBusy=false;return;} cBusy=true;
+  el.className="callout"; el.innerHTML=`${it[0]}<small>${it[1]}</small>`; void el.offsetWidth;
+  el.className="callout go"+(it[2]?" "+it[2]:"")+(REDUCED?" calm":"");
+  setTimeout(nextCallout,1000);
+}
+function quake(){ if(REDUCED) return; const a=$("app"); a.classList.remove("quake"); void a.offsetWidth; a.classList.add("quake"); setTimeout(()=>a.classList.remove("quake"),420); }
+function hypeRight(n,el){
+  R.best=Math.max(R.best||0,n);
+  if(n>=2) SFX.combo(n); else SFX.right();
+  const m=milestone(n);
+  burst(el, n>=12?"blue":"fire", m?46:(n>=3?10+Math.min(n,20):6));
+  if(m){ callout(m.t,m.s,m.blue?"blue":""); setTimeout(m.snd,60); if(m.big) quake(); }
+  const best=P.bestStreak||0;
+  if(n>best){ P.bestStreak=n; if(best>=5&&!R.recorded){ R.recorded=true; callout("NEW HI-STREAK",`you beat ${best}`,"rec"); setTimeout(()=>SFX.record(), m?950:140); } save(); }
+  refreshBar(); fxStart();
+}
+function hypeWrong(prev){
+  if(prev>=3){ SFX.lost(); callout("STREAK LOST",`${prev} in a row`,"lost"); smoke(); } else SFX.wrong();
+  setTimeout(refreshBar,0);
+}
+/* particles: flames rise off the streak bar, sparks burst from the right answer */
+const fx={parts:[],run:false,carry:0,last:0,w:0,h:0,dpr:1,ctx:null};
+const PAL={fire:[[255,226,150],[255,160,50],[240,80,30],[120,30,20]],blue:[[190,240,255],[80,200,255],[60,100,240],[70,40,150]]};
+function fxInit(){ const c=$("fx"); if(!c||!c.getContext) return; fx.ctx=c.getContext("2d"); fxResize(); window.addEventListener("resize",fxResize); }
+function fxResize(){ const c=$("fx"), r=$("app").getBoundingClientRect(); fx.dpr=Math.min(2,window.devicePixelRatio||1); fx.w=r.width; fx.h=r.height; c.width=Math.round(r.width*fx.dpr); c.height=Math.round(r.height*fx.dpr); }
+function relRect(el){ const a=$("app").getBoundingClientRect(), r=el.getBoundingClientRect(); return {x:r.left-a.left,y:r.top-a.top,w:r.width,h:r.height}; }
+function burst(el,pal,count){
+  if(REDUCED||!el||!fx.ctx) return;
+  const r=relRect(el), cx=r.x+r.w/2, cy=r.y+r.h/2;
+  for(let i=0;i<count;i++){ const a=Math.random()*Math.PI*2, sp=80+Math.random()*260;
+    fx.parts.push({k:"spark",x:cx+(Math.random()-.5)*r.w*.6,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-120,life:0,max:.5+Math.random()*.5,r:1.5+Math.random()*2.5,pal}); }
+  fxStart();
+}
+function smoke(){
+  if(REDUCED||!fx.ctx) return; const sb=$("sbar"); if(!sb) return; const r=relRect(sb);
+  for(let i=0;i<26;i++) fx.parts.push({k:"smoke",x:r.x+Math.random()*r.w,y:r.y+r.h/2,vx:(Math.random()-.5)*30,vy:-(20+Math.random()*40),life:0,max:.9+Math.random()*.6,r:6+Math.random()*8});
+  fxStart();
+}
+function fxStart(){ if(fx.run||!fx.ctx) return; fx.run=true; fx.last=performance.now(); requestAnimationFrame(fxTick); }
+function fxTick(t){
+  const ctx=fx.ctx, dt=Math.min(.05,Math.max(0,(t-fx.last)/1000)); fx.last=t;
+  const n=screen==="round"?comboOf():0, sb=(n>=3&&!REDUCED)?$("sbar"):null;
+  if(sb){ const r=relRect(sb), blue=n>=12; fx.carry+=Math.min(130,20+n*6)*dt;
+    while(fx.carry>=1&&fx.parts.length<320){ fx.carry--;
+      fx.parts.push({k:"flame",x:r.x+14+Math.random()*(r.w-28),y:r.y+3,vx:(Math.random()-.5)*20,vy:-(40+Math.random()*60+Math.min(n,25)*3),life:0,max:.35+Math.random()*.45,r:(2.5+Math.random()*3.5)*(1+Math.min(n,24)/24),pal:blue?"blue":"fire"}); } }
+  ctx.setTransform(fx.dpr,0,0,fx.dpr,0,0); ctx.clearRect(0,0,fx.w,fx.h);
+  const alive=[];
+  for(const p of fx.parts){
+    p.life+=dt; if(p.life>=p.max) continue; alive.push(p); const u=p.life/p.max;
+    if(p.k==="spark"){ p.vy+=420*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; const c=PAL[p.pal][Math.min(3,Math.floor(u*3))];
+      ctx.globalCompositeOperation="lighter"; ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${1-u})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
+    else if(p.k==="flame"){ p.x+=p.vx*dt+Math.sin((p.life+p.x)*12)*.4; p.y+=p.vy*dt; const c=PAL[p.pal][Math.min(3,Math.floor(u*4))];
+      const rr=p.r*(1-u*.55); ctx.globalCompositeOperation="lighter"; ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${(1-u)*.42})`; ctx.beginPath(); ctx.ellipse(p.x,p.y,rr*.7,rr*1.6,0,0,7); ctx.fill(); }
+    else { p.x+=p.vx*dt; p.y+=p.vy*dt; ctx.globalCompositeOperation="source-over"; ctx.fillStyle=`rgba(120,130,140,${(1-u)*.35})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1+u),0,7); ctx.fill(); }
+  }
+  fx.parts=alive; ctx.globalCompositeOperation="source-over";
+  if(alive.length||sb) requestAnimationFrame(fxTick); else { fx.run=false; ctx.clearRect(0,0,fx.w,fx.h); }
+}
+
+/* ---------- Spell it ---------- */
+function spellOptions(set,idx){
+  const key = set.list ? (t=>t.toLowerCase()) : norm;
+  const [L,T]=set.items[idx]; const seen=new Set([key(T)]); const out=[];
+  const take=(arr,max)=>{for(const x of arr){if(out.length>=max)break;const n=key(x.t);if(!seen.has(n)){out.push(x.t);seen.add(n);}}};
+  const own=(set.decoys||[]).map(t=>({t,l:t[0].toUpperCase()}));
+  const any=shuffle(POOL.filter(x=>x.set!==set));
+  if(set.list){
+    /* code tiles: the other items in the set, then that set's own wrong answers, then related sets */
+    const other=shuffle(set.items.filter((x,j)=>j!==idx).map(x=>({t:x[1]})));
+    const rel=shuffle(POOL.filter(x=>x.set&&x.set!==set&&x.set.list&&x.set.grp===set.grp));
+    take(other,2); take(shuffle(own),3); take(rel,3); take(any,3);
+  } else {
+    const same=shuffle(set.items.filter((x,j)=>j!==idx&&x[0]===L).map(x=>({t:x[1]})));
+    const ownL=shuffle(own.filter(x=>x.l===L));
+    const letter=shuffle(POOL.filter(x=>x.set!==set&&x.l===L));
+    const other=shuffle(set.items.filter((x,j)=>j!==idx&&x[0]!==L).map(x=>({t:x[1]})));
+    take(same,1); take(ownL,2); take(letter,3); take(same,3); take(other,3); take(any,3);
+  }
+  return shuffle([T,...out]);
+}
+function startSpell(set){
+  stopTimer();
+  R={type:"spell",set,idx:0,miss:0,missed:[],last:"",locked:false,start:Date.now()};
+  R.opts=spellOptions(set,0); screen="round"; render();
+}
+function renderSpell(main){
+  const s=R.set, n=s.items.length, L=s.items[R.idx][0];
+  main.innerHTML=`
+  <div class="top"><button class="back" data-act="menu">‹ Panel</button><div class="ttl">${s.name}</div><div class="meter">Misses <b class="x">${R.miss}</b></div></div>
+  ${streakBar()}
+  <p class="topic">${s.topic}</p>
+  ${lights(s,i=>i<R.idx?"on":i===R.idx?"cur":"")}
+  <div class="last">${R.last}</div>
+  <p class="ask">${s.list?"Item":"Letter"} ${R.idx+1} of ${n}: <b>${L}</b> ${s.list?"is":"stands for"}…</p>
+  <div class="opts">${R.opts.map((t,i)=>`<button class="opt" data-act="pick" data-i="${i}">${t}</button>`).join("")}</div>`;
+}
+function pickSpell(i,btn){
+  if(R.locked) return; R.locked=true;
+  const [L,T]=R.set.items[R.idx]; const ok=R.opts[i]===T;
+  const btns=[...document.querySelectorAll(".opt")];
+  if(ok){btn.classList.add("right"); R.combo=(R.combo||0)+1; hypeRight(R.combo,btn);}
+  else{
+    btn.classList.add("wrong","shake"); buzz(); hypeWrong(R.combo||0); R.combo=0; R.miss++; R.missed.push(R.idx);
+    btns[R.opts.indexOf(T)].classList.add("right");
+    const cur=document.querySelector(".lt.cur"); if(cur){cur.classList.remove("cur");cur.classList.add("bad");}
+  }
+  setTimeout(()=>{
+    R.last=`<b>${R.set.words?R.set.words[R.idx]:L}</b> = ${T}`; R.idx++; R.locked=false;
+    if(R.idx>=R.set.items.length) finishRound(); else {R.opts=spellOptions(R.set,R.idx); render();}
+  }, ok?380:1300);
+}
+
+/* ---------- Tap in order ---------- */
+function startOrder(set){
+  stopTimer();
+  R={type:"order",set,idx:0,miss:0,missed:[],last:"",used:new Set(),chips:shuffle(set.items.map((_,i)=>i)),start:Date.now()};
+  screen="round"; render();
+  timer=setInterval(()=>{const t=$("clock"); if(t) t.textContent=((Date.now()-R.start)/1000).toFixed(1)+"s";},100);
+}
+function renderOrder(main){
+  const s=R.set;
+  main.innerHTML=`
+  <div class="top"><button class="back" data-act="menu">‹ Panel</button><div class="ttl">${s.name}</div><div class="meter"><b id="clock">${((Date.now()-R.start)/1000).toFixed(1)}s</b> · <span class="x">${R.miss}</span></div></div>
+  ${streakBar()}
+  <p class="topic">${s.topic}</p>
+  ${lights(s,i=>i<R.idx?"on":i===R.idx?"cur":"")}
+  <div class="last">${R.last}</div>
+  <p class="ask">Tap what <b>${s.items[R.idx][0]}</b> ${s.list?"is":"stands for"}</p>
+  <div class="chips">${R.chips.filter(k=>!R.used.has(k)).map(k=>`<button class="chip" data-act="chip" data-k="${k}">${s.items[k][1]}</button>`).join("")}</div>`;
+}
+function tapChip(k,btn){
+  const s=R.set; const [L,T]=s.items[R.idx];
+  if(s.items[k][1]===T){
+    R.last=`<b>${s.words?s.words[R.idx]:L}</b> = ${T}`; R.used.add(k); R.idx++; R.combo=(R.combo||0)+1; hypeRight(R.combo,btn);
+    if(R.idx>=s.items.length) finishRound(); else render();
+  } else {
+    R.miss++; if(!R.missed.includes(R.idx)) R.missed.push(R.idx); buzz(); hypeWrong(R.combo||0); R.combo=0;
+    btn.classList.remove("shake","wrong"); void btn.offsetWidth; btn.classList.add("shake","wrong");
+    setTimeout(()=>btn.classList.remove("wrong"),500);
+    const m=document.querySelector(".meter .x"); if(m) m.textContent=R.miss;
+  }
+}
+
+/* ---------- Lightning ----------
+   Clock starts at 45 s (max 60). Every 3 in a row adds time: +3 s at level 1, +2 s at level 2, +1 s after.
+   Wrong = −4 s and streak reset. Every 8 right = next level; level 2 adds "Fill the letter", level 3 adds "What comes next".
+   Questions come from shuffled decks (no repeats until a deck runs out), never the same acronym twice in a row. */
+const L_START=45000, L_MAX=60000, PER_LEVEL=8;
+const KINDS={which:"Which acronym?",letter:"Fill the letter",next:"What comes next?",fact:"Quick fact"};
+const LETTER_POOL=[]; SETS.forEach(s=>s.items.forEach((_,i)=>LETTER_POOL.push([s,i])));
+const NEXT_POOL=[]; SETS.filter(s=>s.id!=="unos").forEach(s=>s.items.forEach((_,i)=>{if(i<s.items.length-1) NEXT_POOL.push([s,i]);}));
+function draw(name,src,setOf){
+  const b=R.bags;
+  if(!b[name]||!b[name].length) b[name]=shuffle(src);
+  let x=b[name].pop();
+  for(let n=0;n<4&&setOf(x)===R.lastSet&&b[name].length;n++){
+    b[name].splice(Math.floor(Math.random()*b[name].length),0,x);
+    x=b[name].pop();
+  }
+  return x;
+}
+function nextKind(){
+  const r=Math.random();
+  if(R.level<=1) return r<.3?"fact":"which";
+  if(R.level===2) return r<.3?"fact":r<.65?"which":"letter";
+  return r<.25?"fact":r<.5?"which":r<.75?"letter":"next";
+}
+function factOpts(f){return shuffle([f.a,...f.d]);}
+function makeQ(){
+  const kind=nextKind(); let q;
+  if(kind==="fact"){
+    const f=Math.random()<.25 ? mathQ() : draw("fact",FACTS,()=>"fact"), opts=factOpts(f);
+    q={kind,set:null,src:f.src,text:f.q,opts,ans:opts.indexOf(f.a),miss:`${f.q} → <strong>${f.a}</strong>`};
+  } else if(kind==="which"){
+    const it=draw("which",LIGHT,x=>x.set);
+    const okSets=new Set(SETS.filter(s=>s.items.some(x=>norm(x[1])===norm(it.t))).map(s=>s.id));
+    const sets=shuffle([it.set,...shuffle(SETS.filter(s=>!okSets.has(s.id))).slice(0,3)]);
+    q={kind,set:it.set,text:it.t,sets,ans:sets.indexOf(it.set),miss:`${it.t} → <strong>${it.set.name}</strong>`};
+  } else if(kind==="letter"){
+    const [s,i]=draw("letter",LETTER_POOL,x=>x[0]);
+    const [L,T]=s.items[i], opts=spellOptions(s,i);
+    q={kind,set:s,idx:i,text:`${s.list?"Item":"Letter"} ${i+1}: <b>${L}</b> ${s.list?"is":"stands for"}…`,opts,ans:opts.indexOf(T),miss:`<strong>${s.name}</strong> · ${L} = ${T}`};
+  } else {
+    const [s,i]=draw("next",NEXT_POOL,x=>x[0]);
+    const prev=s.items[i][1], T=s.items[i+1][1], seen=new Set([norm(T),norm(prev)]), out=[];
+    const take=arr=>{for(const t of arr){if(out.length>=3)break;const n=norm(t);if(!seen.has(n)){out.push(t);seen.add(n);}}};
+    take(shuffle(s.items.filter((_,j)=>j!==i&&j!==i+1).map(x=>x[1])));
+    take(shuffle(POOL.filter(x=>x.set!==s&&x.l===s.items[i+1][0]).map(x=>x.t)));
+    take(shuffle(POOL.filter(x=>x.set!==s).map(x=>x.t)));
+    const opts=shuffle([T,...out]);
+    q={kind,set:s,idx:i,text:`After “${prev}” comes…`,opts,ans:opts.indexOf(T),miss:`<strong>${s.name}</strong> · ${prev} → ${T}`};
+  }
+  R.lastSet=q.set; return q;
+}
+function startLight(){
+  stopTimer();
+  R={type:"light",score:0,streak:0,right:0,wrong:0,level:1,misses:[],locked:false,endAt:Date.now()+L_START,bags:{},lastSet:null,ticked:null,banner:"",bannerUntil:0};
+  R.q=makeQ(); screen="round"; render();
+  timer=setInterval(lightTick,100);
+}
+function lightTick(){
+  if(!R||R.type!=="light") return;
+  const left=Math.max(0,R.endAt-Date.now()), sec=Math.ceil(left/1000);
+  const bar=$("tb"), t=$("tleft");
+  if(bar){bar.firstElementChild.style.width=(100*left/L_MAX)+"%"; bar.classList.toggle("low",left<10000);}
+  if(t) t.textContent=sec+"s";
+  if(left>0&&sec<=5&&sec!==R.ticked){R.ticked=sec; SFX.tick();}
+  if(left<=0){stopTimer(); R.locked=true; SFX.over(); finishRound();}
+}
+function mult(){return Math.min(4,1+Math.floor(R.streak/5));}
+function bonusSecs(){return Math.max(1,4-R.level);}
+function renderLight(main){
+  const left=Math.max(0,R.endAt-Date.now()), q=R.q, need=3-(R.streak%3);
+  const opts = q.kind==="which"
+    ? `<div class="lgrid">${q.sets.map((s,i)=>`<button class="lo" data-act="lpick" data-i="${i}"><span class="nm">${s.name}</span><span class="tp">${s.topic}</span></button>`).join("")}</div>`
+    : `<div class="lopts">${q.opts.map((t,i)=>`<button class="opt" data-act="lpick" data-i="${i}">${t}</button>`).join("")}</div>`;
+  main.innerHTML=`
+  <div class="top"><button class="back" data-act="menu">‹ Panel</button><div class="ttl">LEVEL ${R.level}</div><div class="meter"><span class="bonus" id="bonus"></span><b id="tleft">${Math.ceil(left/1000)}s</b></div></div>
+  ${streakBar()}
+  <div class="tb${left<10000?" low":""}" id="tb"><span style="width:${100*left/L_MAX}%"></span></div>
+  <div class="row"><span class="meter">Score <b>${R.score}</b>${R.streak>=5?` <span class="streak">×${mult()}</span>`:""}</span><span class="meter">Streak <b>${R.streak}</b> · ${need} more = +${bonusSecs()}s</span></div>
+  ${R.banner?`<div class="banner">${R.banner}</div>`:""}
+  <div class="pc"><span class="k">${KINDS[q.kind]}${q.src?" · "+q.src:""}</span>
+    ${q.set&&q.kind!=="which"?`<span class="setnm">${q.set.name}</span>`:""}
+    ${q.kind==="letter"?`<div class="mini">${q.set.items.map((it,i)=>`<span class="lt${i===q.idx?" cur":""}">${it[0]}</span>`).join("")}</div>`:""}
+    <span class="item${q.kind==="fact"?" q2":""}">${q.text}</span></div>
+  ${opts}`;
+}
+function flashBonus(txt,neg){const el=$("bonus"); if(!el) return; el.textContent=txt; el.className="bonus"; void el.offsetWidth; el.className="bonus show"+(neg?" neg":"");}
+function pickLight(i,btn){
+  if(R.locked) return; R.locked=true;
+  const q=R.q, ok=i===q.ans, btns=document.querySelectorAll("[data-act=lpick]");
+  let delay=ok?280:1000;
+  if(ok){
+    R.right++; R.streak++; R.score+=100*R.level*mult(); btn.classList.add("right"); hypeRight(R.streak,btn);
+    if(R.streak%3===0){
+      const b=bonusSecs(); R.endAt=Math.min(Date.now()+L_MAX,R.endAt+b*1000);
+      flashBonus("+"+b+"s",false); setTimeout(()=>SFX.bonus(),110); delay=650;
+    }
+    if(R.right%PER_LEVEL===0){
+      R.level++;
+      const msg = R.level===2 ? "Fill the letter unlocked · streak bonus now +2s" : R.level===3 ? "What comes next unlocked · streak bonus now +1s" : `Points ×${R.level} per answer`;
+      R.banner=`LEVEL ${R.level} · ${msg}`; R.bannerUntil=R.right+2; setTimeout(()=>SFX.level(),220); delay=Math.max(delay,750);
+    }
+  } else {
+    const lost=R.streak; R.wrong++; R.streak=0; R.endAt-=4000; R.misses.push(q.miss);
+    btn.classList.add("wrong","shake"); btns[q.ans].classList.add("right"); hypeWrong(lost); buzz(); flashBonus("−4s",true);
+  }
+  setTimeout(()=>{
+    if(screen!=="round"||!R||R.type!=="light"||!timer) return;
+    if(R.banner&&R.right>=R.bannerUntil) R.banner="";
+    R.q=makeQ(); R.locked=false; render();
+  }, delay);
+}
+
+/* ---------- Facts: 12 untimed questions, missed facts first ---------- */
+const FACT_N=12;
+const FTOPICS=[["all","All"],["ils","ILS & lights"],["nav","Nav aids & GPS"],["proc","Procedures"],["math","Descent math"],["charts","Chart symbols"],["att","Attitude flying"]];
+function topicSize(t){ return (t==="all"||t==="math") ? FACT_N : Math.min(FACT_N, FACTS.filter(f=>f.t===t).length); }
+function factDeck(t){
+  const fm=P.factMiss||{};
+  if(t==="math"){ const out=shuffle(FACTS.filter(f=>f.t==="math")).slice(0,3); while(out.length<FACT_N) out.push(mathQ()); return shuffle(out); }
+  const src=FACTS.filter(f=>t==="all"||f.t===t);
+  const deck=shuffle(src).sort((a,b)=>(fm[b.q]||0)-(fm[a.q]||0)).slice(0, t==="all" ? FACT_N-3 : FACT_N);
+  if(t==="all") for(let i=0;i<3;i++) deck.push(mathQ());
+  return shuffle(deck);
+}
+function startFacts(){
+  stopTimer();
+  const t=P.factTopic||"all", deck=factDeck(t);
+  R={type:"facts",topic:t,deck,idx:0,miss:0,missed:[],locked:false,opts:factOpts(deck[0])};
+  screen="round"; render();
+}
+function renderFacts(main){
+  const f=R.deck[R.idx], n=R.deck.length;
+  main.innerHTML=`
+  <div class="top"><button class="back" data-act="menu">‹ Panel</button><div class="ttl">FACTS ${R.idx+1}/${n}</div><div class="meter">Misses <b class="x">${R.miss}</b></div></div>
+  ${streakBar()}
+  <div class="tb"><span style="width:${100*R.idx/n}%"></span></div>
+  <div class="pc"><span class="k">${f.src}</span><span class="item q2">${f.q}</span></div>
+  <div class="lopts">${R.opts.map((t,i)=>`<button class="opt" data-act="fpick" data-i="${i}">${t}</button>`).join("")}</div>`;
+}
+function pickFact(i,btn){
+  if(R.locked) return; R.locked=true;
+  const f=R.deck[R.idx], ok=R.opts[i]===f.a; P.factMiss=P.factMiss||{};
+  if(ok){btn.classList.add("right"); R.combo=(R.combo||0)+1; hypeRight(R.combo,btn); if(!f.gen&&P.factMiss[f.q]) P.factMiss[f.q]--;}
+  else{
+    btn.classList.add("wrong","shake"); document.querySelectorAll("[data-act=fpick]")[R.opts.indexOf(f.a)].classList.add("right");
+    hypeWrong(R.combo||0); R.combo=0; buzz(); R.miss++; R.missed.push(f); if(!f.gen) P.factMiss[f.q]=(P.factMiss[f.q]||0)+1;
+  }
+  save();
+  setTimeout(()=>{
+    if(screen!=="round"||!R||R.type!=="facts") return;
+    R.idx++; R.locked=false;
+    if(R.idx>=R.deck.length) finishRound(); else {R.opts=factOpts(R.deck[R.idx]); render();}
+  }, ok?450:1500);
+}
+
+/* ---------- Result ---------- */
+function finishRound(){
+  stopTimer();
+  if(R.type==="light"){
+    R.newBest = R.score>P.best; if(R.newBest) P.best=R.score;
+    if(R.level>P.bestLevel) P.bestLevel=R.level;
+  } else if(R.type==="facts"){
+    const sc=R.deck.length-R.miss, prev=P.factsBestBy[R.topic]||0; R.stars = R.miss===0?3 : R.miss<=2?2:1;
+    R.newBest = sc>prev; P.factsBestBy[R.topic]=Math.max(prev,sc);
+  } else {
+    const n=R.set.items.length; R.secs=(Date.now()-R.start)/1000;
+    if(R.type==="spell") R.stars = R.miss===0?3 : R.miss<=Math.max(1,Math.round(n*.15))?2:1;
+    else R.stars = (R.miss===0&&R.secs<=n*3)?3 : R.miss<=1?2:1;
+    const prev=starsOf(R.type,R.set.id); R.improved=R.stars>prev;
+    P.stars[R.type][R.set.id]=Math.max(prev,R.stars);
+  }
+  save(); screen="result"; render(); maybePost();
+  if(R.type==="spell"||R.type==="order"){
+    const n=R.set.items.length; SFX.sweep(n);
+    if(R.stars===3) setTimeout(()=>SFX.star(), n*55+120);
+  } else if(R.type==="facts"){ if(R.stars===3) SFX.star(); else SFX.over(); }
+}
+function renderResult(main){
+  if(R.type==="facts"){
+    main.innerHTML=`<div class="res">
+      <div class="stars">${starStr(R.stars)}</div>
+      ${R.newBest?'<span class="newbest">NEW BEST</span>':""}
+      <h2>${R.deck.length-R.miss} of ${R.deck.length} right</h2>
+      <p class="sub">${FTOPICS.find(x=>x[0]===R.topic)[1]} · best ${P.factsBestBy[R.topic]}/${R.deck.length}${R.topic==="math"?" · new numbers next round":" · missed facts come back first next round"}</p>
+      <p class="sub">Best streak this round ${R.best||0} · hi-streak ${P.bestStreak||0}</p>
+      ${R.missed.length?`<div class="box"><span class="grp" style="margin:0">Say these out loud</span><ul class="say">${R.missed.map(f=>`<li class="missed"><b>✕</b><span>${f.q} → <strong>${f.a}</strong> <span class="quiet">· ${f.src}</span></span></li>`).join("")}</ul></div>`:'<p class="sub">Clean round.</p>'}
+      <div class="btns"><button class="btn" data-act="again">Next round</button><button class="btn" data-act="menu">Panel</button></div></div>`;
+    return;
+  }
+  if(R.type==="light"){
+    const miss=[...new Set(R.misses)];
+    main.innerHTML=`<div class="res">
+      <div class="bignum" style="text-align:center">${R.score}</div>
+      ${R.newBest?'<span class="newbest">NEW BEST</span>':""}
+      <h2>Time’s up at level ${R.level}</h2>
+      <p class="sub">${R.right} right · ${R.wrong} wrong · best ${P.best} · best level ${P.bestLevel}</p>
+      <p class="sub">Best streak this round ${R.best||0} · hi-streak ${P.bestStreak||0}</p>
+      ${miss.length?`<div class="box"><span class="grp" style="margin:0">Review these</span><ul class="say">${miss.map(m=>`<li class="missed"><b>✕</b><span>${m}</span></li>`).join("")}</ul></div>`:'<p class="sub">No misses. Clean run.</p>'}
+      <div class="btns"><button class="btn" data-act="again">Play again</button><button class="btn" data-act="menu">Panel</button><button class="btn full" data-act="board">Leaderboard</button></div></div>`;
+    return;
+  }
+  const s=R.set, w=weakest(R.type);
+  const title = R.stars===3 ? `${s.name}: all lamps green` : R.stars===2 ? `${s.name}: almost there` : `${s.name}: run it again`;
+  main.innerHTML=`<div class="res">
+    <div class="stars">${starStr(R.stars)}</div>
+    ${R.improved&&starsOf(R.type,s.id)>0?'<span class="newbest">NEW BEST</span>':""}
+    <h2>${title}</h2>
+    <p class="sub">${R.miss} miss${R.miss===1?"":"es"} · ${R.secs.toFixed(1)}s${R.type==="order"&&R.miss===0&&R.stars<3?` · under ${s.items.length*3}s for 3 stars`:""}</p>
+    <p class="sub">Best streak this round ${R.best||0} · hi-streak ${P.bestStreak||0}</p>
+    <div class="sweep">${lights(s,i=>R.missed.includes(i)?"bad":"on")}</div>
+    <div class="box"><span class="grp" style="margin:0">Now say it out loud in one breath</span>
+      <ul class="say">${s.items.map((it,i)=>`<li class="${R.missed.includes(i)?"missed":""}"><b>${it[0]}</b><span>${s.words?`<em class="word">${s.words[i]}</em> · `:""}${it[1]}</span></li>`).join("")}</ul></div>
+    <div class="btns">
+      <button class="btn" data-act="again">Again</button>
+      <button class="btn" data-act="play" data-id="${w.id===s.id?shuffle(SETS.filter(x=>x.id!==s.id))[0].id:w.id}">Next: ${w.id===s.id?"random":w.name}</button>
+      <button class="btn full" data-act="menu">Back to panel</button>
+    </div></div>`;
+}
+
+/* ---------- Leaderboard: shared board in db. Org members post live; others send a score card the owner approves. ---------- */
+const MAXSTARS=SETS.length*6;
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=(v,max)=>{ v=Number(v); return Number.isFinite(v)&&v>=0 ? Math.min(Math.floor(v),max) : 0; };
+const cleanCS=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9 -]/g,"").replace(/\s+/g," ").trim().slice(0,12);
+function totalStars(){ return SETS.reduce((a,s)=>a+starsOf("spell",s.id)+starsOf("order",s.id),0); }
+function myStats(){ return {light:P.best||0,streak:P.bestStreak||0,stars:totalStars(),level:P.bestLevel||0}; }
+const LIVE_URL="https://claude.ai/artifact/YGw3nSiJB5bEwQDdAp8EnP";
+const onClaude=()=>!!(window.claude&&typeof window.claude.use==="function");
+let DB=null, UID=null, OWNER=false, BOARD=null, boardLoading=true, boardErr="", canDirect=null, posting=false;
+let adminMsg="", copyMsg="", csErr="", delArm=null, draftCS="", draftPaste="", editCS=false;
+function hash6(str){ let h=2166136261>>>0; const s2=str+"|dynasty-ir"; for(let i=0;i<s2.length;i++){ h^=s2.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h.toString(16).padStart(8,"0").slice(0,6); }
+function cardCode(){ const st=myStats(); const b=btoa(unescape(encodeURIComponent(JSON.stringify({c:P.callsign,l:st.light,s:st.streak,t:st.stars,v:st.level})))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); return "AA1."+b+"."+hash6(b); }
+function cardText(){ const st=myStats(); return `Acronym Annunciator score card\n${P.callsign} · Lightning ${st.light} · Hi-streak ${st.streak} · Stars ${st.stars}/${MAXSTARS}\n${cardCode()}`; }
+function parseCards(text){
+  const out=[], re=/AA1\.([A-Za-z0-9_-]+)\.([0-9a-f]{6})/g; let m;
+  while((m=re.exec(text))){
+    if(hash6(m[1])!==m[2]){ out.push({bad:true}); continue; }
+    try{ out.push(JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,"+").replace(/_/g,"/")))))); }catch(e){ out.push({bad:true}); }
+  }
+  return out;
+}
+function mergedBoard(){
+  const m=new Map();
+  for(const d of BOARD||[]){
+    const cs=cleanCS(d.callsign); if(!cs) continue;
+    const r=m.get(cs)||{cs,light:0,streak:0,stars:0,level:0,ids:[]};
+    r.light=Math.max(r.light,num(d.light,1e7)); r.streak=Math.max(r.streak,num(d.streak,1e4)); r.stars=Math.max(r.stars,num(d.stars,MAXSTARS)); r.level=Math.max(r.level,num(d.level,1e3));
+    r.ids.push(d.id); m.set(cs,r);
+  }
+  return [...m.values()];
+}
+function renderIfBoard(){ if(screen==="board") render(); }
+async function initBoard(){
+  const cl=window.claude;
+  if(!cl||typeof cl.use!=="function"){ boardLoading=false; renderIfBoard(); return; }
+  try{ DB=await cl.use("db"); }catch(e){ DB=null; }
+  let U=null; try{ U=await cl.use("user"); }catch(e){ U=null; }
+  if(U){ try{ OWNER=!!(await U.isOwner()); }catch(e){} try{ UID=await U.id(); }catch(e){ UID=null; } }
+  if(!DB){ boardLoading=false; renderIfBoard(); return; }
+  const timer=setTimeout(()=>{ if(boardLoading){ boardLoading=false; boardErr="The board can’t be reached yet. It will appear when the connection comes back."; renderIfBoard(); } },10000);
+  try{
+    DB.collection("board").limit(500).onSnapshot(snap=>{
+      BOARD=snap.docs.filter(d=>d.exists).map(d=>Object.assign({id:d.id},d.data()));
+      if(!snap.metadata.fromCache){ clearTimeout(timer); boardLoading=false; boardErr=""; }
+      renderIfBoard();
+    }, e=>{ clearTimeout(timer); boardLoading=false; boardErr=(e&&e.code==="revoked")?"":"The board isn’t available right now."; renderIfBoard(); });
+  }catch(e){ clearTimeout(timer); boardLoading=false; boardErr="The board isn’t available right now."; }
+  maybePost();
+}
+async function maybePost(){
+  if(!DB||!UID||!P.callsign||canDirect===false||posting) return;
+  const st=myStats(), body={callsign:P.callsign,light:st.light,streak:st.streak,stars:st.stars,level:st.level};
+  const sig=JSON.stringify(body); if(sig===P.postedSig&&canDirect) return;
+  posting=true;
+  try{ await DB.doc("board/"+UID).set(Object.assign({},body,{kind:"live",updated:new Date().toISOString()})); P.postedSig=sig; canDirect=true; save(); }
+  catch(e){ canDirect=false; }
+  posting=false; renderIfBoard();
+}
+let csWarned="";
+async function saveCallsign(){
+  const cs=cleanCS(draftCS);
+  if(cs.length<2){ csErr="Use 2–12 letters or numbers."; render(); return; }
+  const taken=mergedBoard().find(r=>r.cs===cs);
+  if(taken&&cs!==P.callsign&&!(UID&&taken.ids.includes(UID))&&csWarned!==cs){ csWarned=cs; csErr=`${cs} is already on the board. If that’s you, tap Save again; otherwise pick another.`; render(); return; }
+  P.callsign=cs; P.postedSig=""; csErr=""; editCS=false; draftCS=""; save(); render(); maybePost();
+}
+async function copyCard(){
+  try{ await navigator.clipboard.writeText(cardText()); copyMsg="Copied. Paste it in your group chat for Sebastian."; }
+  catch(e){ copyMsg="Couldn’t copy automatically. Press and hold the card below to select it."; }
+  render();
+}
+async function addCards(){
+  const cards=parseCards(draftPaste); let ok=0,bad=0; const names=[];
+  if(!cards.length){ adminMsg="No score cards found. Paste the whole message, including the AA1 code."; render(); return; }
+  for(const c of cards){
+    if(c.bad){ bad++; continue; }
+    const cs=cleanCS(c.c); if(cs.length<2){ bad++; continue; }
+    const id="c-"+cs.replace(/ /g,"_"), prev=(BOARD||[]).find(d=>d.id===id)||{};
+    const body={callsign:cs,light:Math.max(num(c.l,1e7),num(prev.light,1e7)),streak:Math.max(num(c.s,1e4),num(prev.streak,1e4)),stars:Math.max(num(c.t,MAXSTARS),num(prev.stars,MAXSTARS)),level:Math.max(num(c.v,1e3),num(prev.level,1e3)),kind:"card",updated:new Date().toISOString()};
+    try{ await DB.doc("board/"+id).set(body); ok++; names.push(cs); }catch(e){ bad++; }
+  }
+  adminMsg=`Added ${ok} card${ok===1?"":"s"}${names.length?": "+names.join(", "):""}${bad?` · ${bad} couldn’t be read`:""}.`;
+  if(ok) draftPaste="";
+  render();
+}
+async function delEntry(cs){
+  if(delArm!==cs){ delArm=cs; render(); return; }
+  delArm=null; const r=mergedBoard().find(x=>x.cs===cs);
+  if(r) for(const id of r.ids){ try{ await DB.doc("board/"+id).delete(); }catch(e){} }
+  render();
+}
+function renderBoard(main){
+  const tab=P.lbTab||"light", st=myStats();
+  const label={light:"Lightning",streak:"Hi-streak",stars:"Stars"}[tab];
+  const rows=mergedBoard().filter(r=>r[tab]>0).sort((a,b)=>b[tab]-a[tab]||a.cs.localeCompare(b.cs));
+  let status;
+  if(!DB&&!onClaude()) status="The live board is on the Claude version of this game. Here you can still set a call sign and copy your score card for Sebastian.";
+  else if(!DB) status=boardLoading?"Connecting…":"Sign in to claude.ai to see the board. You can still copy your score card.";
+  else if(boardLoading) status="Loading the board…";
+  else if(boardErr) status=boardErr;
+  else if(canDirect) status="Live: your new bests post to the board automatically.";
+  else if(!P.callsign) status="Pick a call sign to join the board.";
+  else status=OWNER?"Your bests go on the board once your Claude page connects.":"Send your score card to Sebastian to get on the board. Send a fresh one after each new best.";
+  if(OWNER&&DB) status+=" You’re the owner: approve classmates’ cards at the bottom.";
+  const me = (!P.callsign||editCS)
+    ? `<label class="grp" for="cs" style="margin:0">Your call sign</label>
+       <input id="cs" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="SEB" value="${esc(draftCS||P.callsign||"")}">
+       <p class="note bad">${esc(csErr)}</p>
+       <div class="btnrow"><button class="btn" data-act="savecs">Save call sign</button>${P.callsign?'<button class="btn" data-act="canceledit">Cancel</button>':""}</div>`
+    : `<div class="row"><span class="mecs">${esc(P.callsign)}</span><button class="reset" data-act="editcs">Change</button></div>
+       <div class="stats"><span>Lightning <b>${st.light}</b></span><span>Hi-streak <b>${st.streak}</b></span><span>Stars <b>${st.stars}</b>/${MAXSTARS}</span></div>
+       ${canDirect?'<p class="note ok">On the board: your bests update live.</p>':`<div class="btnrow"><button class="btn" data-act="copycard">Copy my score card</button></div>
+       <p class="note${copyMsg.startsWith("Copied")?" ok":""}">${esc(copyMsg)}</p>
+       <pre class="card">${esc(cardText())}</pre>`}`;
+  const list = rows.length
+    ? `<ol class="lb">${rows.map((r,i)=>`<li class="${i<3?"g"+(i+1):""}${r.cs===P.callsign?" mine":""}"><span class="rk">${i+1}</span><span class="cs">${esc(r.cs)}</span><span class="val">${r[tab]}</span>${OWNER?`<button class="del${delArm===r.cs?" armed":""}" data-act="lbdel" data-cs="${esc(r.cs)}">${delArm===r.cs?"Remove?":"✕"}</button>`:"<span></span>"}</li>`).join("")}</ol>`
+    : `<p class="empty">${DB&&!boardLoading?"No one on the board yet. Set a best score and be the first.":(onClaude()?"The board will show here.":"Rankings show on the live board.")}</p>`;
+  const admin = OWNER&&DB ? `<div class="box"><span class="grp" style="margin:0">Approve score cards · only you see this</span>
+       <textarea class="paste" id="paste" placeholder="Paste one or more score cards from your group chat">${esc(draftPaste)}</textarea>
+       <div class="btnrow"><button class="btn" data-act="addcards">Add to board</button></div>
+       <p class="note${adminMsg.startsWith("Added")?" ok":""}">${esc(adminMsg)}</p></div>` : "";
+  main.innerHTML=`
+  <div class="top"><button class="back" data-act="menu">‹ Panel</button><div class="ttl">LEADERBOARD</div><div class="meter"><b>${mergedBoard().length}</b> pilots</div></div>
+  <div class="seg seg3" role="group" aria-label="Leaderboard ranking">
+    <button data-act="lbtab" data-t="light" aria-pressed="${tab==="light"}">Lightning</button>
+    <button data-act="lbtab" data-t="streak" aria-pressed="${tab==="streak"}">Hi-streak</button>
+    <button data-act="lbtab" data-t="stars" aria-pressed="${tab==="stars"}">Stars</button></div>
+  <div class="box me">${me}</div>
+  <p class="lede">${esc(status)}</p>
+  ${!onClaude()?`<a class="btn golive" href="${LIVE_URL}" target="_blank" rel="noopener">Open the live board ›</a>`:""}
+  <div class="grp"><span>${label}</span><span>Top ${rows.length}</span></div>
+  ${list}
+  ${admin}`;
+}
+
+/* ---------- Menu ---------- */
+function renderMenu(main){
+  const desc={spell:"One letter at a time. Pick what it stands for. The wrong answers start with the same letter.",order:"Every item, scrambled. Tap them in acronym order. 3 stars = no misses and under 3 seconds an item.",light:"Beat the clock. Streaks buy time, mistakes cost it, and the questions get harder as you level up.",facts:"Numbers, definitions and descent math, with no clock. Pick a topic, get them right, then say them out loud."};
+  let h=`<div class="seg" role="group" aria-label="Game mode">
+    <button data-act="mode" data-m="spell" aria-pressed="${mode==="spell"}">Spell</button>
+    <button data-act="mode" data-m="order" aria-pressed="${mode==="order"}">Order</button>
+    <button data-act="mode" data-m="light" aria-pressed="${mode==="light"}">Lightning</button>
+    <button data-act="mode" data-m="facts" aria-pressed="${mode==="facts"}">Facts</button></div>
+  <p class="lede">${desc[mode]}</p>${hiStreak()}`;
+  if(mode==="facts"){
+    const t=P.factTopic||"all", cnt=t==="math"?"∞":FACTS.filter(f=>t==="all"||f.t===t).length;
+    h+=`<div class="tchips" role="group" aria-label="Fact topic">${FTOPICS.map(([k,l])=>`<button class="tchip" data-act="ftopic" data-t="${k}" aria-pressed="${t===k}">${l}</button>`).join("")}</div>
+      <div class="box"><div class="row"><div><span class="grp" style="margin:0">Best round</span><div class="bignum">${P.factsBestBy[t]||0}<span style="font-size:20px;color:var(--muted)">/${topicSize(t)}</span></div></div><div style="text-align:right"><span class="grp" style="margin:0">${t==="math"?"Problems":"Facts"}</span><div class="bignum" style="color:var(--cyan)">${cnt}</div></div></div>
+      <ul class="rules">${t==="math"
+        ? `<li>New numbers every round: VDP by distance and by time, 3° descent rate, top of descent, 2°/4°/5° descent rates, DME slant range and NDB bearings.</li><li>Do the arithmetic in your head, the way you would on final.</li>`
+        : `<li>Each round is <b>${topicSize(t)} questions</b>, no clock${t==="all"?", with 3 descent-math problems mixed in":""}.</li><li>Facts you miss come back <b>first</b> in your next round.</li>`}
+        <li>All of these also turn up in Lightning as <b>Quick fact</b> questions.</li>
+      </ul></div>
+      <button class="cta" data-act="facts">Start round</button>`;
+  } else if(mode==="light"){
+    h+=`<div class="box"><div class="row"><div><span class="grp" style="margin:0">Best score</span><div class="bignum">${P.best}</div></div><div style="text-align:right"><span class="grp" style="margin:0">Best level</span><div class="bignum" style="color:var(--cyan)">${P.bestLevel}</div></div></div>
+      <ul class="rules">
+        <li>You start with <b>45 seconds</b>. The clock holds 60 at most.</li>
+        <li>Every <b>3 in a row adds time</b>: +3s at level 1, +2s at level 2, +1s after that.</li>
+        <li>A wrong answer costs <b>4 seconds</b> and resets your streak. 5 in a row starts a score multiplier.</li>
+        <li>Every <b>8 right</b> is a new level. Level 2 adds <b>Fill the letter</b>. Level 3 adds <b>What comes next</b>. <b>Quick facts</b> and descent math are mixed in from the start.</li>
+        <li>Questions come from a shuffled deck: no repeats until it runs out, and never the same acronym twice in a row.</li>
+      </ul></div>
+      <button class="cta" data-act="light">Start run</button>`;
+  } else {
+    const w=weakest(mode);
+    h+=`<button class="cta" data-act="play" data-id="${w.id}">Fly the weakest: ${w.name}<small>${w.topic}</small></button>`;
+    const cap=s=>{const n=starsOf(mode,s.id);const st=n===3?"on":n>0?"caution":"";return `<button class="cap ${st}${s.name.length>11?" wide":""}" data-act="play" data-id="${s.id}" aria-label="${s.name}, ${n} of 3 stars"><span class="nm">${s.name}</span><span class="tp">${s.topic} · ${s.items.length}</span><span class="st">${starStr(n)}</span></button>`;};
+    h+=`<div class="grp"><span>From your guide</span></div><div class="panelgrid">${SETS.filter(s=>!s.bonus&&!s.grp).map(cap).join("")}</div>
+      <div class="grp"><span>ILS & approaches · Q47–63</span></div><div class="panelgrid">${SETS.filter(s=>s.grp==="ils").map(cap).join("")}</div>
+      <div class="grp"><span>Quick-review sheets</span></div><div class="panelgrid">${SETS.filter(s=>s.grp==="qr").map(cap).join("")}</div>
+      <div class="grp"><span>Bonus: lost comms & clearances</span></div><div class="panelgrid">${SETS.filter(s=>s.bonus).map(cap).join("")}</div>
+      <div class="legend"><span>Not flown</span><span class="c">1–2 stars</span><span class="o">3 stars</span></div>`;
+  }
+  h+=`<div class="row"><span class="quiet">Progress saves in this browser.</span><button class="reset${resetArm?" armed":""}" data-act="reset">${resetArm?"Tap again to erase":"Reset"}</button></div>`;
+  h+=`<footer class="credits"><div class="lamps" aria-hidden="true"><i></i><i></i><i></i></div><p class="by">Designed by <b>Sebastian</b> · Coded by <b>Claude</b></p><p class="gl">Good luck to all my IR students at Dynasty!</p></footer>`;
+  main.innerHTML=h;
+}
+
+function render(){
+  const main=$("main");
+  if(screen==="menu") renderMenu(main);
+  else if(screen==="board") renderBoard(main);
+  else if(screen==="result") renderResult(main);
+  else if(R.type==="spell") renderSpell(main);
+  else if(R.type==="order") renderOrder(main);
+  else if(R.type==="facts") renderFacts(main);
+  else renderLight(main);
+  const tot=m=>SETS.reduce((a,s)=>a+starsOf(m,s.id),0);
+  $("hdr").innerHTML = mode==="light" ? `Best <b>${P.best}</b>` : mode==="facts" ? `Best <b>${P.factsBestBy[P.factTopic]||0}</b>/${topicSize(P.factTopic)}` : `<b>★ ${tot(mode)}</b>/${SETS.length*3}`;
+  soundIcon();
+  if(screen==="round"&&comboOf()>=3) fxStart();
+}
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  const a=el.dataset.act;
+  audio(); /* unlock Web Audio inside a tap, as browsers require */
+  if(a==="sound"){P.sound=!P.sound; save(); soundIcon(); if(P.sound) SFX.right(); return;}
+  if(a!=="reset") resetArm=false;
+  if(a==="mode"){mode=el.dataset.m;render();}
+  else if(a==="play"){const s=BYID[el.dataset.id]; mode==="order"?startOrder(s):startSpell(s); $("main").scrollTop=0;}
+  else if(a==="light") startLight();
+  else if(a==="facts") startFacts();
+  else if(a==="board"){ stopTimer(); R=null; screen="board"; render(); $("main").scrollTop=0; }
+  else if(a==="lbtab"){ P.lbTab=el.dataset.t; save(); render(); }
+  else if(a==="savecs") saveCallsign();
+  else if(a==="editcs"){ editCS=true; draftCS=P.callsign||""; csErr=""; render(); }
+  else if(a==="canceledit"){ editCS=false; draftCS=""; csErr=""; render(); }
+  else if(a==="copycard") copyCard();
+  else if(a==="addcards") addCards();
+  else if(a==="lbdel") delEntry(el.dataset.cs);
+  else if(a==="ftopic"){P.factTopic=el.dataset.t; save(); render();}
+  else if(a==="pick") pickSpell(+el.dataset.i,el);
+  else if(a==="chip") tapChip(+el.dataset.k,el);
+  else if(a==="lpick") pickLight(+el.dataset.i,el);
+  else if(a==="fpick") pickFact(+el.dataset.i,el);
+  else if(a==="again"){ if(R.type==="light") startLight(); else if(R.type==="facts") startFacts(); else if(R.type==="order") startOrder(R.set); else startSpell(R.set); }
+  else if(a==="menu"){stopTimer(); screen="menu"; R=null; render(); $("main").scrollTop=0;}
+  else if(a==="reset"){ if(!resetArm){resetArm=true;render();} else {P={stars:{spell:{},order:{}},best:0,bestLevel:0,factsBestBy:{},factTopic:P.factTopic||"all",factMiss:{},sound:P.sound};resetArm=false;save();render();} }
+});
+document.addEventListener("input",e=>{ if(e.target.id==="cs"){ draftCS=e.target.value; csErr=""; } else if(e.target.id==="paste") draftPaste=e.target.value; });
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target&&e.target.id==="cs"){ e.preventDefault(); saveCallsign(); return; }
+  if(screen!=="round"||!R) return;
+  const n=parseInt(e.key,10);
+  if(R.type==="spell"&&n>=1&&n<=4){const b=document.querySelectorAll(".opt")[n-1]; if(b) pickSpell(n-1,b);}
+  if(R.type==="light"&&n>=1&&n<=4){audio(); const b=document.querySelectorAll("[data-act=lpick]")[n-1]; if(b) pickLight(n-1,b);}
+  if(R.type==="facts"&&n>=1&&n<=4){audio(); const b=document.querySelectorAll("[data-act=fpick]")[n-1]; if(b) pickFact(n-1,b);}
+  if(e.key==="Escape"){stopTimer();screen="menu";R=null;render();}
+});
+
+function start(data){ if(data&&["spell","order","light","facts"].includes(data.mode)) mode=data.mode; fxInit(); render(); initBoard(); }
+window.claude?.hot?.snapshot(() => ({mode}));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
